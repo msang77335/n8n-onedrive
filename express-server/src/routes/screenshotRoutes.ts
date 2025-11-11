@@ -129,7 +129,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
         }
 
         // Đợi thêm để trang load
-        await page.waitForTimeout(2000);
+        await page.waitForTimeout(10000);
       }
 
       // Đợi thêm một chút để page render hoàn toàn
