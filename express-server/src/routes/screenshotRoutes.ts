@@ -59,26 +59,40 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     // const browser = await chromium.connectOverCDP(pwEndpoint);
     console.log(`✅ [SCREENSHOT] Browser connected successfully`);
 
-    const browser = await chromium.launchPersistentContext('/Users/Home/Library/Application Support/Google/Chrome/Profile 2',{
+    const browser = await chromium.launch({
       headless: false,
       executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+      devtools: true,
+
       args: [
-        // '--profile-directory=Default',
+        // '--profile-directory=/Users/tranthanh/Library/Application Support/Google/Chrome/Profile 2',
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-web-security',
+        '--disable-features=IsolateOrigins',
+        '--disable-site-isolation-trials',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--disable-gpu',
+        '--proxy-server=socks5://127.0.0.1:9050'
+
       ]
     })
 
     console.log(`📄 [SCREENSHOT] Creating new page...`);
 
     // Proxy configuration - ưu tiên proxy từ request, fallback về aftership proxy
-    let proxyConfig: any = undefined;
-    
+    // let proxyConfig: any = undefined;
+
     // if (proxy) {
     //   console.log(`🔗 [SCREENSHOT] Using custom proxy: ${proxy}`);
     //   // Parse proxy format: user:pass@host:port hoặc host:port
     //   if (proxy.includes('@')) {
-    //     const [auth, server] = proxy.split('@');
-    //     const [username, password] = auth.split(':');
-    //     const [host, port] = server.split(':');
+    //     const [ auth, server ] = proxy.split('@');
+    //     const [ username, password ] = auth.split(':');
+    //     const [ host, port ] = server.split(':');
         
     //     proxyConfig = {
     //       server: `http://${host}:${port}`,
@@ -105,15 +119,15 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     const page = await browser.newPage();
 
     // Set extra headers (bao gồm User-Agent)
-    await page.setExtraHTTPHeaders({
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
-      'Accept-Encoding': 'gzip, deflate, br',
-      'DNT': '1',
-      'Connection': 'keep-alive',
-      'Upgrade-Insecure-Requests': '1',
-    });
+    // await page.setExtraHTTPHeaders({
+    //   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    //   'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+    //   'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
+    //   'Accept-Encoding': 'gzip, deflate, br',
+    //   'DNT': '1',
+    //   'Connection': 'keep-alive',
+    //   'Upgrade-Insecure-Requests': '1',
+    // });
 
     // Ẩn automation indicators
     await page.addInitScript(() => {

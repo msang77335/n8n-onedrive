@@ -1,0 +1,10 @@
+POST http://localhost:3000/api/v1/screenshot
+Content-Type: application/json
+
+{
+    "url": "https://www.aftership.com/track/jtexpress-vn/859371029468",
+    "width": "1280",
+    "height": "920",
+    "fullPage": "false",
+    "format": "png"
+}
