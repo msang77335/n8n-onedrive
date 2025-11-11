@@ -56,45 +56,53 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     // Launch browser
     console.log(`🌐 [SCREENSHOT] Connecting to Browserless...`);
     const pwEndpoint = `ws://browserless:3000?token=JLIyO58cbu&--no-sandbox&--disable-setuid-sandbox&--disable-web-security&--disable-features=VizDisplayCompositor&--disable-site-isolation-trials&--disable-dev-shm-usage&--disable-accelerated-2d-canvas&--no-first-run&--no-zygote&--disable-gpu&--incognito&--disable-blink-features=AutomationControlled&--disable-features=TranslateUI&--disable-ipc-flooding-protection&--disable-renderer-backgrounding&--disable-backgrounding-occluded-windows&--disable-background-timer-throttling&--disable-sync&--metrics-recording-only&--no-report-upload&--disable-default-apps&--disable-extensions&--disable-features=IsolateOrigins`;
-    const browser = await chromium.connectOverCDP(pwEndpoint);
+    // const browser = await chromium.connectOverCDP(pwEndpoint);
     console.log(`✅ [SCREENSHOT] Browser connected successfully`);
+
+    const browser = await chromium.launchPersistentContext('/Users/Home/Library/Application Support/Google/Chrome/Profile 2',{
+      headless: false,
+      executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+      args: [
+        // '--profile-directory=Default',
+      ]
+    })
 
     console.log(`📄 [SCREENSHOT] Creating new page...`);
 
     // Proxy configuration - ưu tiên proxy từ request, fallback về aftership proxy
     let proxyConfig: any = undefined;
     
-    if (proxy) {
-      console.log(`🔗 [SCREENSHOT] Using custom proxy: ${proxy}`);
-      // Parse proxy format: user:pass@host:port hoặc host:port
-      if (proxy.includes('@')) {
-        const [auth, server] = proxy.split('@');
-        const [username, password] = auth.split(':');
-        const [host, port] = server.split(':');
+    // if (proxy) {
+    //   console.log(`🔗 [SCREENSHOT] Using custom proxy: ${proxy}`);
+    //   // Parse proxy format: user:pass@host:port hoặc host:port
+    //   if (proxy.includes('@')) {
+    //     const [auth, server] = proxy.split('@');
+    //     const [username, password] = auth.split(':');
+    //     const [host, port] = server.split(':');
         
-        proxyConfig = {
-          server: `http://${host}:${port}`,
-          username: username,
-          password: password
-        };
-      } else {
-        proxyConfig = {
-          server: proxy.startsWith('http') ? proxy : `http://${proxy}`
-        };
-      }
-    } else if (url.includes('aftership.com')) {
-      console.log(`🔗 [SCREENSHOT] Using default Oxylabs proxy for aftership.com`);
-      proxyConfig = {
-        server: 'https://dc.oxylabs.io:8002',
-        username: 'sang02_0N4jv',
-        password: 'nHm2nR=KMsCQ4pv'
-      };
-    }
+    //     proxyConfig = {
+    //       server: `http://${host}:${port}`,
+    //       username: username,
+    //       password: password
+    //     };
+    //   } else {
+    //     proxyConfig = {
+    //       server: proxy.startsWith('http') ? proxy : `http://${proxy}`
+    //     };
+    //   }
+    // } else if (url.includes('aftership.com')) {
+    //   console.log(`🔗 [SCREENSHOT] Using default Oxylabs proxy for aftership.com`);
+    //   proxyConfig = {
+    //     server: 'https://dc.oxylabs.io:8002',
+    //     username: 'sang02_0N4jv',
+    //     password: 'nHm2nR=KMsCQ4pv'
+    //   };
+    // }
 
-    const context = await browser.newContext(proxyConfig ? { proxy: proxyConfig } : {});
-    console.log(`🔗 [SCREENSHOT] Context created with proxy:`, proxyConfig || 'none');
+    // const context = await browser.newContext(proxyConfig ? { proxy: proxyConfig } : {});
+    // console.log(`🔗 [SCREENSHOT] Context created with proxy:`, proxyConfig || 'none');
 
-    const page = await context.newPage();
+    const page = await browser.newPage();
 
     // Set extra headers (bao gồm User-Agent)
     await page.setExtraHTTPHeaders({
@@ -171,7 +179,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       }
 
       // Đợi thêm một chút để page render hoàn toàn
-      await page.waitForTimeout(20000);
+      await page.waitForTimeout(60000);
       console.log(`✅ [SCREENSHOT] Additional wait completed`);
 
     } catch (navigationError: any) {
