@@ -16,7 +16,6 @@ interface ScreenshotQuery {
 router.post('/', async (req: Request, res: Response): Promise<void> => {
   const startTime = Date.now();
   console.log(`🚀 [SCREENSHOT] Starting screenshot request at ${new Date().toISOString()}`);
-  
   try {
     const {
       url,
@@ -24,7 +23,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       height = '1080',
       fullPage = 'false',
       format = 'png',
-      quality = '80'
+      quality = '80',
     }: ScreenshotQuery = req.body;
 
     console.log(`📋 [SCREENSHOT] Parameters:`, { url, width, height, fullPage, format, quality });
@@ -57,9 +56,8 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     const browser = await chromium.connectOverCDP(pwEndpoint);
     console.log(`✅ [SCREENSHOT] Browser connected successfully`);
 
-    console.log(`📄 [SCREENSHOT] Creating new page...`);
     const page = await browser.newPage();
-    
+
     // Set extra headers (bao gồm User-Agent)
     await page.setExtraHTTPHeaders({
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -70,30 +68,30 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       'Connection': 'keep-alive',
       'Upgrade-Insecure-Requests': '1',
     });
-    
+
     // Ẩn automation indicators
     await page.addInitScript(() => {
       // Override webdriver property
-      Object.defineProperty(navigator, 'webdriver', {
+      Object.defineProperty((globalThis as any).navigator, 'webdriver', {
         get: () => false,
       });
-      
+
       // Mock chrome runtime
-      Object.defineProperty(window, 'chrome', {
+      Object.defineProperty(globalThis, 'chrome', {
         get: () => ({
           runtime: {},
         }),
       });
-      
+
       // Override permissions
-      const originalQuery = window.navigator.permissions.query;
-      window.navigator.permissions.query = (parameters) => (
+      const originalQuery = (globalThis as any).navigator.permissions.query;
+      (globalThis as any).navigator.permissions.query = (parameters: any) => (
         parameters.name === 'notifications' ?
-          Promise.resolve({ state: Notification.permission }) :
+          Promise.resolve({ state: (globalThis as any).Notification.permission }) :
           originalQuery(parameters)
       );
     });
-    
+
     console.log(`✅ [SCREENSHOT] New page created with anti-bot settings`);
 
     // Set viewport
@@ -112,30 +110,30 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
         timeout: 60000 // Tăng timeout lên 60 giây
       });
       console.log(`✅ [SCREENSHOT] Page loaded successfully`);
-      
+
       // Kiểm tra và xử lý Cloudflare verification
-      const isCloudflareChallenge = await page.$('input[name="cf-turnstile-response"]') || 
-                                   await page.$('.cf-browser-verification') ||
-                                   await page.$('#cf-challenge-running') ||
-                                   await page.locator('text=Verify you are human').first().isVisible().catch(() => false);
-      
+      const isCloudflareChallenge = await page.$('input[name="cf-turnstile-response"]') ||
+        await page.$('.cf-browser-verification') ||
+        await page.$('#cf-challenge-running') ||
+        await page.locator('text=Verify you are human').first().isVisible().catch(() => false);
+
       if (isCloudflareChallenge) {
         console.log(`🛡️ [SCREENSHOT] Cloudflare challenge detected, waiting...`);
-        
+
         // Đợi challenge hoàn thành (tối đa 30 giây)
         try {
-          await page.waitForURL(url => !url.includes('challenge'), { timeout: 30000 });
+          await page.waitForURL(url => !url.toString().includes('challenge'), { timeout: 30000 });
           console.log(`✅ [SCREENSHOT] Cloudflare challenge passed`);
         } catch {
           console.log(`⚠️ [SCREENSHOT] Cloudflare challenge timeout, continuing anyway...`);
         }
-        
+
         // Đợi thêm để trang load
-        await page.waitForTimeout(5000);
+        await page.waitForTimeout(2000);
       }
-      
+
       // Đợi thêm một chút để page render hoàn toàn
-      await page.waitForTimeout(10000);
+      await page.waitForTimeout(2000);
       console.log(`✅ [SCREENSHOT] Additional wait completed`);
 
     } catch (navigationError: any) {
@@ -152,12 +150,16 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     console.log(`📜 [SCREENSHOT] Performing scroll to trigger lazy loading...`);
     try {
       await page.waitForTimeout(1000);
-      
+
       // Scroll xuống một chút để trigger lazy loading
-      await page.evaluate(() => {
-        window.scrollTo(0, 200);
-      });
-      
+      const isAfterShip = url.includes('aftership.com');
+      if (isAfterShip) {
+        console.log(`📜 [SCREENSHOT] Special scroll for aftership.com`);
+        await page.evaluate(() => {
+          (globalThis as any).scrollTo(0, 200);
+        });
+      }
+
       await page.waitForTimeout(2000);
       console.log(`✅ [SCREENSHOT] Scroll completed`);
     } catch (scrollError: any) {
@@ -179,7 +181,6 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     console.log(`📸 [SCREENSHOT] Taking screenshot...`);
     const screenshotBuffer = await page.screenshot(screenshotOptions);
     console.log(`✅ [SCREENSHOT] Screenshot taken! Size: ${screenshotBuffer.length} bytes`);
-    
     console.log(`🔒 [SCREENSHOT] Closing browser...`);
     try {
       await browser.close();
@@ -207,7 +208,6 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     const duration = endTime - startTime;
     console.error(`💥 [SCREENSHOT] Error occurred after ${duration}ms:`, error);
     console.error(`💥 [SCREENSHOT] Error stack:`, error.stack);
-    
     res.status(500).json({
       success: false,
       error: 'Failed to take screenshot',
