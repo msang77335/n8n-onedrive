@@ -10,6 +10,7 @@ interface ScreenshotQuery {
   fullPage?: string;
   format?: string;
   quality?: string;
+  waitForTimeout?: string;
 }
 
 // POST /api/v1/screenshot - Take screenshot and return image
@@ -24,6 +25,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       fullPage = 'false',
       format = 'png',
       quality = '80',
+      waitForTimeout = '10000'
     }: ScreenshotQuery = req.body;
 
     console.log(`📋 [SCREENSHOT] Parameters:`, { url, width, height, fullPage, format, quality });
@@ -133,7 +135,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       }
 
       // Đợi thêm một chút để page render hoàn toàn
-      await page.waitForTimeout(10000);
+      await page.waitForTimeout(Number.parseInt(waitForTimeout || '30000', 10));
       console.log(`✅ [SCREENSHOT] Additional wait completed`);
 
     } catch (navigationError: any) {
