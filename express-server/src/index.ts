@@ -25,10 +25,10 @@ const limiter = rateLimit({
 
 // Middleware
 app.use(helmet()); // Security headers
-app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3001',
-  credentials: true,
-}));
+// app.use(cors({
+//   origin: process.env.CORS_ORIGIN || 'http://localhost:3001',
+//   credentials: true,
+// }));
 app.use(compression()); // Compress responses
 app.use(morgan('combined')); // Logging
 app.use(limiter); // Rate limiting

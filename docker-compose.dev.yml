@@ -3,22 +3,30 @@ version: '3.8'
 services:
   browserless:
     image: ghcr.io/browserless/chromium
-    ports:
-      - "3000:3000"
+    # ports:
+    #   - "3000:3000"
     networks:
-      - automation-net
+      automation-net:
+        aliases:
+          - chrome
+          - browser
+          - headless-chrome
     restart: unless-stopped
     environment:
       - TOKEN=${BROWSERLESS_API_TOKEN}
 
   n8n:
     image: docker.n8n.io/n8nio/n8n
-    ports:
-      - "5678:5678"
+    # ports:
+    #   - "5678:5678"
     volumes:
       - n8n_data:/home/node/.n8n
     networks:
-      - automation-net
+      automation-net:
+        aliases:
+          - automation
+          - workflow
+          - n8n-server
     restart: unless-stopped
     environment:
       - TZ=${TIMEZONE}
@@ -30,10 +38,14 @@ services:
     build:
       context: ./express-server
       dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
+    # ports:
+    #   - "8000:8000"
     networks:
-      - automation-net
+      automation-net:
+        aliases:
+          - api
+          - screenshot-api
+          - web-service
     environment:
       - NODE_ENV=production
       - PORT=8000
