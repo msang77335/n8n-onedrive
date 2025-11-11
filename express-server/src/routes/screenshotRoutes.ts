@@ -133,7 +133,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       }
 
       // Đợi thêm một chút để page render hoàn toàn
-      await page.waitForTimeout(2000);
+      await page.waitForTimeout(10000);
       console.log(`✅ [SCREENSHOT] Additional wait completed`);
 
     } catch (navigationError: any) {
