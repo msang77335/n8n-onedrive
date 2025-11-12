@@ -1,6 +1,22 @@
 version: '3.8'
 
 services:
+  torproxy:
+    image: dperson/torproxy
+    ports:
+      - "8118:8118"
+      - "9050:9050"
+    networks:
+      automation-net:
+        aliases:
+          - tor
+          - torproxy
+          - proxy
+    restart: unless-stopped
+    environment:
+      - TOR_NewCircuitPeriod=60
+      - TOR_MaxCircuitDirtiness=300
+
   browserless:
     image: ghcr.io/browserless/chromium
     # ports:
@@ -51,6 +67,7 @@ services:
       - PORT=8000
       - BROWSERLESS_API_TOKEN=${BROWSERLESS_API_TOKEN}
       - BROWSERLESS_PORT=${BROWSERLESS_PORT}
+      - TOR_PORT=${TOR_PORT}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:8000/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1) })"]

@@ -11,6 +11,7 @@ interface ScreenshotQuery {
   format?: string;
   quality?: string;
   waitForTimeout?: string;
+  useProxy?: boolean;
 }
 
 // POST /api/v1/screenshot - Take screenshot and return image
@@ -25,7 +26,8 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       fullPage = 'false',
       format = 'png',
       quality = '80',
-      waitForTimeout = '10000'
+      waitForTimeout = '10000',
+      useProxy = false
     }: ScreenshotQuery = req.body;
 
     console.log(`📋 [SCREENSHOT] Parameters:`, { url, width, height, fullPage, format, quality });
@@ -53,12 +55,16 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     }
 
     // Launch browser
+    // const pwEndpoint = `ws://browserless:3000?token=JLIyO58cbu`;
     console.log(`🌐 [SCREENSHOT] Connecting to Browserless...`);
     const pwEndpoint = `ws://headless-chrome:${process.env.BROWSERLESS_PORT}?token=${process.env.BROWSERLESS_API_TOKEN}`;
     const browser = await chromium.connectOverCDP(pwEndpoint);
+    // const browser = await chromium.launch({ headless: true });
     console.log(`✅ [SCREENSHOT] Browser connected successfully`);
 
-    const page = await browser.newPage();
+    const page = useProxy ?
+      await (await browser.newContext({ proxy: { server: `http://torproxy:${process.env.TOR_PORT}` } })).newPage() :
+      await browser.newPage();
 
     // Set extra headers (bao gồm User-Agent)
     await page.setExtraHTTPHeaders({
@@ -158,7 +164,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       if (isAfterShip) {
         console.log(`📜 [SCREENSHOT] Special scroll for aftership.com`);
         await page.evaluate(() => {
-          (globalThis as any).scrollTo(0, 200);
+          (globalThis as any).scrollTo(0, 700);
         });
       }
 
