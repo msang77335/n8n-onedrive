@@ -1,6 +1,13 @@
 import { Request, Response, Router } from 'express';
 import { chromium } from 'playwright';
 
+const proxies = {
+  tor: {
+    server: `http://torproxy:${process.env.TOR_PORT}`
+  }
+  
+};
+
 const router = Router();
 
 interface ScreenshotQuery {
@@ -63,7 +70,11 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     console.log(`✅ [SCREENSHOT] Browser connected successfully`);
 
     const page = useProxy ?
-      await (await browser.newContext({ proxy: { server: `http://torproxy:${process.env.TOR_PORT}` } })).newPage() :
+      await (await browser.newContext({ proxy: { 
+        server: `http://142.111.48.253:7030`, 
+        username: 'jdlxhaek',
+        password: 'rmkr551esb7x'
+      } })).newPage() :
       await browser.newPage();
 
     // Set extra headers (bao gồm User-Agent)
