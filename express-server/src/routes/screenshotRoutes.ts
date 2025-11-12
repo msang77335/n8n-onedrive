@@ -1,12 +1,6 @@
 import { Request, Response, Router } from 'express';
 import { chromium } from 'playwright';
-
-const proxies = {
-  tor: {
-    server: `http://torproxy:${process.env.TOR_PORT}`
-  }
-  
-};
+import { ProxyManager } from '../helpers/proxyManager';
 
 const router = Router();
 
@@ -19,6 +13,7 @@ interface ScreenshotQuery {
   quality?: string;
   waitForTimeout?: string;
   useProxy?: boolean;
+  proxyId?: string;
 }
 
 // POST /api/v1/screenshot - Take screenshot and return image
@@ -34,10 +29,11 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       format = 'png',
       quality = '80',
       waitForTimeout = '10000',
-      useProxy = false
+      useProxy = false,
+      proxyId
     }: ScreenshotQuery = req.body;
 
-    console.log(`📋 [SCREENSHOT] Parameters:`, { url, width, height, fullPage, format, quality });
+    console.log(`📋 [SCREENSHOT] Parameters:`, { url, width, height, fullPage, format, quality, useProxy, proxyId });
 
     if (!url) {
       console.log(`❌ [SCREENSHOT] Missing URL parameter`);
@@ -66,16 +62,43 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     console.log(`🌐 [SCREENSHOT] Connecting to Browserless...`);
     const pwEndpoint = `ws://headless-chrome:${process.env.BROWSERLESS_PORT}?token=${process.env.BROWSERLESS_API_TOKEN}`;
     const browser = await chromium.connectOverCDP(pwEndpoint);
-    // const browser = await chromium.launch({ headless: true });
     console.log(`✅ [SCREENSHOT] Browser connected successfully`);
 
-    const page = useProxy ?
-      await (await browser.newContext({ proxy: { 
-        server: `http://142.111.48.253:7030`, 
-        username: 'jdlxhaek',
-        password: 'rmkr551esb7x'
-      } })).newPage() :
+    // Proxy configuration using ProxyManager
+    let proxyConfig: any = undefined;
+    
+    if (useProxy) {
+      if (proxyId) {
+        // Use specific proxy by ID
+        const proxy = ProxyManager.getProxyById(proxyId);
+        if (proxy) {
+          proxyConfig = ProxyManager.formatProxyForPlaywright(proxy);
+          console.log(`🔗 [SCREENSHOT] Using specific proxy: ${proxy.name}`);
+        } else {
+          console.log(`⚠️ [SCREENSHOT] Proxy ID '${proxyId}' not found, using next available proxy`);
+          const nextProxy = ProxyManager.getNextProxy();
+          if (nextProxy) {
+            proxyConfig = ProxyManager.formatProxyForPlaywright(nextProxy);
+            console.log(`🔄 [SCREENSHOT] Using next proxy: ${nextProxy.name}`);
+          }
+        }
+      } else {
+        // Use round-robin proxy selection
+        const nextProxy = ProxyManager.getNextProxy();
+        if (nextProxy) {
+          proxyConfig = ProxyManager.formatProxyForPlaywright(nextProxy);
+          console.log(`🔄 [SCREENSHOT] Using next proxy (round-robin): ${nextProxy.name}`);
+        } else {
+          console.log(`⚠️ [SCREENSHOT] No active proxies available, proceeding without proxy`);
+        }
+      }
+    }
+
+    const page = proxyConfig ?
+      await (await browser.newContext({ proxy: proxyConfig })).newPage() :
       await browser.newPage();
+    
+    console.log(`📄 [SCREENSHOT] Page created with proxy config:`, proxyConfig || 'none');
 
     // Set extra headers (bao gồm User-Agent)
     await page.setExtraHTTPHeaders({
