@@ -38,6 +38,9 @@ export class ProxyManager {
       }
     }
 
+    console.log(`✅ [PROXY MANAGER] Loaded ${proxies.length} proxies from environment`);
+    console.log(`🌐 [PROXY MANAGER] Proxies: ${proxies.map(p => p.server).join(', ')}`);
+
     this.proxies = proxies;
     return proxies;
   }
