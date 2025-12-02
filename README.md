@@ -64,6 +64,82 @@ docker compose -p automation-dev -f docker-compose.dev.yml down
 |---------|-----|-------------|
 | N8N Web UI | http://localhost:5678 | Giao diện quản lý workflows |
 | Browserless | http://localhost:3000 | Chrome API endpoint |
+| Express API | http://localhost:8000 | Screenshot & Proxy API |
+| Health Check | http://localhost:8000/health | API health status |
+
+## 🔌 API Endpoints
+
+### Screenshot API
+
+#### Single Screenshot
+```bash
+curl -X POST http://localhost:8000/api/v1/screenshot \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://example.com",
+    "width": "1920",
+    "height": "1080",
+    "fullPage": true,
+    "format": "png",
+    "useProxy": true,
+    "proxyId": "tor-http"
+  }' \
+  --output screenshot.png
+```
+
+#### Batch Screenshots
+```bash
+# Sequential processing
+curl -X POST http://localhost:8000/api/v1/batch-screenshot \
+  -H "Content-Type: application/json" \
+  -d '{
+    "urls": [
+      "https://example.com",
+      "https://httpbin.org/ip",
+      "https://github.com"
+    ],
+    "width": "1920",
+    "height": "1080",
+    "format": "png",
+    "useProxy": true,
+    "parallel": false
+  }'
+
+# Parallel processing with concurrency
+curl -X POST http://localhost:8000/api/v1/batch-screenshot \
+  -H "Content-Type: application/json" \
+  -d '{
+    "urls": ["https://example.com", "https://httpbin.org", "https://github.com"],
+    "parallel": true,
+    "maxConcurrency": 3,
+    "useProxy": true
+  }'
+```
+
+### Proxy Management API
+
+```bash
+# List all proxies
+curl http://localhost:8000/api/v1/proxies
+
+# Get active proxies only
+curl http://localhost:8000/api/v1/proxies/active
+
+# Get next proxy (round-robin)
+curl http://localhost:8000/api/v1/proxies/next
+
+# Get random proxy
+curl http://localhost:8000/api/v1/proxies/random
+
+# Get specific proxy by ID
+curl http://localhost:8000/api/v1/proxies/tor-http
+
+# Refresh proxy list from environment
+curl -X POST http://localhost:8000/api/v1/proxies/refresh
+
+# Reset proxy rotation
+curl -X POST http://localhost:8000/api/v1/proxies/reset-rotation
+```
 
 ## 🔗 Kết nối N8N với Browserless
 

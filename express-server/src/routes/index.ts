@@ -1,11 +1,13 @@
 import { Router, Request, Response } from 'express';
 import screenshotRoutes from './screenshotRoutes';
+import batchScreenshotRoutes from './batchScreenshotRoutes';
 import proxyRoutes from './proxyRoutes';
 
 const router = Router();
 
 // Mount route handlers
 router.use('/screenshot', screenshotRoutes);
+router.use('/batch-screenshot', batchScreenshotRoutes);
 router.use('/proxies', proxyRoutes);
 
 // Default API route
@@ -18,6 +20,7 @@ router.get('/', (req: Request, res: Response): void => {
     endpoints: {
       health: '/health',
       screenshot: '/api/v1/screenshot',
+      batchScreenshot: '/api/v1/batch-screenshot',
       proxies: '/api/v1/proxies'
     }
   });
