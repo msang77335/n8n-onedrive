@@ -60,13 +60,14 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     // Launch browser
     // const pwEndpoint = `ws://browserless:3000?token=JLIyO58cbu`;
     console.log(`🌐 [SCREENSHOT] Connecting to Browserless...`);
-    const pwEndpoint = `ws://headless-chrome:${process.env.BROWSERLESS_PORT}?token=${process.env.BROWSERLESS_API_TOKEN}`;
-    const browser = await chromium.connectOverCDP(pwEndpoint);
+    // const pwEndpoint = `ws://headless-chrome:${process.env.BROWSERLESS_PORT}?token=${process.env.BROWSERLESS_API_TOKEN}`;
+    // const browser = await chromium.connectOverCDP(pwEndpoint);
+    const browser = await chromium.launch({ headless: true });
     console.log(`✅ [SCREENSHOT] Browser connected successfully`);
 
     // Proxy configuration using ProxyManager
     let proxyConfig: any = undefined;
-    
+
     if (useProxy) {
       if (proxyId) {
         // Use specific proxy by ID
@@ -97,7 +98,63 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     const page = proxyConfig ?
       await (await browser.newContext({ proxy: proxyConfig })).newPage() :
       await browser.newPage();
-    
+
+    // Set up route interception for AfterShip API requests
+    await page.route('**/*', (route) => {
+      const BLOCKED = [
+        'googletagmanager.com',
+        'google-analytics.com',
+        'doubleclick.net',
+      ];
+      const request = route.request();
+      const requestUrl = request.url();
+      const resourceType = request.resourceType();
+
+      // if (['image', 'font', 'stylesheet'].includes(resourceType)) {
+      //   return route.abort();  // chặn
+      // }
+
+      if (BLOCKED.some(domain => requestUrl.includes(domain))) {
+        return route.abort();
+      }
+
+      return route.continue();
+    });
+
+    // Handle AfterShip API tracking requests
+    if (url.includes('aftership.com')) {
+      try {
+        console.log(`🚢 [SCREENSHOT] Handling AfterShip tracking API...`);
+
+        // Listen for network responses to catch AfterShip API calls
+        page.on('response', async (response) => {
+          console.log(`🔍 [SCREENSHOT] Network response:`, response.url());
+          if (response.url().includes('track.aftership.com/api/v2/direct-trackings/batch')) {
+            try {
+              console.log(`📡 [SCREENSHOT] Caught AfterShip API response:`, {
+                url: response.url(),
+                status: response.status(),
+                method: response.request().method()
+              });
+
+              const responseData = await response.json().catch(() => null);
+              if (responseData) {
+                console.log(`📦 [SCREENSHOT] AfterShip API response data:`, JSON.stringify(responseData, null, 2));
+              }
+            } catch (apiError: any) {
+              console.log(`⚠️ [SCREENSHOT] Error handling AfterShip API response:`, apiError.message);
+            }
+          }
+        });
+
+        // Wait for potential API calls to complete
+        await page.waitForTimeout(3000);
+        console.log(`✅ [SCREENSHOT] AfterShip API handling completed`);
+      } catch (aftershipError: any) {
+        console.log(`⚠️ [SCREENSHOT] AfterShip API handling error:`, aftershipError.message);
+      }
+    }
+
     console.log(`📄 [SCREENSHOT] Page created with proxy config:`, proxyConfig || 'none');
 
     // Set extra headers (bao gồm User-Agent)
@@ -206,7 +263,8 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       console.log(`✅ [SCREENSHOT] Scroll completed`);
     } catch (scrollError: any) {
       console.log(`⚠️ [SCREENSHOT] Scroll error: ${scrollError.message}`);
-    }    // Take screenshot and return as buffer
+    }
+
     console.log(`📸 [SCREENSHOT] Preparing screenshot options...`);
     const screenshotOptions: any = {
       fullPage: fullPage === 'true'
