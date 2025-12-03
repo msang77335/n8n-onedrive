@@ -1,5 +1,5 @@
 import { Request, Response, Router } from 'express';
-import { chromium } from 'playwright';
+import { chromium, Route, Response as PlaywrightResponse } from 'playwright';
 import { ProxyManager } from '../helpers/proxyManager';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -15,6 +15,8 @@ interface ScreenshotQuery {
 router.post('/', async (req: Request, res: Response): Promise<void> => {
   const startTime = Date.now();
   console.log(`🚀 [SCREENSHOT] Starting screenshot request at ${new Date().toISOString()}`);
+  
+  let browser: any = null;
   
   try {
     const {
@@ -49,7 +51,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     // Launch browser
     console.log(`🌐 [SCREENSHOT] Connecting to Browserless...`);
     const pwEndpoint = `ws://headless-chrome:${process.env.BROWSERLESS_PORT}?token=${process.env.BROWSERLESS_API_TOKEN}`;
-    const browser = await chromium.connectOverCDP(pwEndpoint);
+    browser = await chromium.connectOverCDP(pwEndpoint);
     // const browser = await chromium.launch({ headless: true });
     console.log(`✅ [SCREENSHOT] Browser connected successfully`);
 
@@ -74,9 +76,22 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       await browser.newPage();
 
     let responseSent = false;
+    let browserClosed = false;
+
+    const closeBrowser = async () => {
+      if (!browserClosed) {
+        browserClosed = true;
+        try {
+          await browser.close();
+          console.log(`✅ [SCREENSHOT] Browser closed`);
+        } catch (closeError: any) {
+          console.log(`⚠️ [SCREENSHOT] Browser already closed: ${closeError.message}`);
+        }
+      }
+    };
 
     // Set up route interception for AfterShip API requests
-    await page.route('**/*', (route) => {
+    await page.route('**/*', (route: Route) => {
       const BLOCKED = [
         'googletagmanager.com',
         'google-analytics.com',
@@ -98,7 +113,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
         console.log(`🚢 [SCREENSHOT] Handling AfterShip tracking API...`);
 
         // Listen for network responses to catch AfterShip API calls
-        page.on('response', async (response) => {
+        page.on('response', async (response: PlaywrightResponse) => {
           if (responseSent) return;
           
           console.log(`🔍 [SCREENSHOT] Network response:`, response.url());
@@ -116,9 +131,6 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
                 
                 console.log(`📦 [SCREENSHOT] AfterShip API response data:`, JSON.stringify(responseData, null, 2));
                 
-                await browser.close().catch(() => {});
-                console.log(`✅ [SCREENSHOT] Browser closed after getting API data`);
-                
                 const endTime = Date.now();
                 const duration = endTime - startTime;
                 
@@ -132,6 +144,8 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 
                 if (isError) {
                   console.log(`❌ [SCREENSHOT] AfterShip API returned error in ${duration}ms`);
+                  
+                  await closeBrowser();
                   
                   // Write failed proxy IP to file
                   if (currentProxyInfo) {
@@ -162,6 +176,8 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
                 } else {
                   console.log(`🎉 [SCREENSHOT] AfterShip API data retrieved in ${duration}ms`);
                   
+                  await closeBrowser();
+                  
                   // Extract only the first tracking item from direct_trackings array
                   const firstTracking = responseData.data?.direct_trackings?.[0] || null;
                   
@@ -188,6 +204,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     }
     
     if (responseSent) {
+      await closeBrowser();
       return;
     }
 
@@ -237,7 +254,10 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     // Navigate to URL
     console.log(`🌍 [SCREENSHOT] Navigating to URL: ${url}...`);
     try {
-      if (responseSent) return;
+      if (responseSent) {
+        await closeBrowser();
+        return;
+      }
       
       await page.goto(url, {
         waitUntil: 'domcontentloaded',
@@ -245,7 +265,10 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       });
       console.log(`✅ [SCREENSHOT] Page loaded successfully`);
 
-      if (responseSent) return;
+      if (responseSent) {
+        await closeBrowser();
+        return;
+      }
 
       // Check and handle Cloudflare verification
       const isCloudflareChallenge = await page.$('input[name="cf-turnstile-response"]') ||
@@ -257,18 +280,24 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
         console.log(`🛡️ [SCREENSHOT] Cloudflare challenge detected, waiting...`);
 
         try {
-          await page.waitForURL(url => !url.toString().includes('challenge'), { timeout: 30000 });
+          await page.waitForURL((url: string) => !url.toString().includes('challenge'), { timeout: 30000 });
           console.log(`✅ [SCREENSHOT] Cloudflare challenge passed`);
         } catch {
           console.log(`⚠️ [SCREENSHOT] Cloudflare challenge timeout, continuing anyway...`);
         }
 
-        if (responseSent) return;
+        if (responseSent) {
+          await closeBrowser();
+          return;
+        }
         
         await page.waitForTimeout(10000);
       }
 
-      if (responseSent) return;
+      if (responseSent) {
+        await closeBrowser();
+        return;
+      }
 
       await page.waitForTimeout(30000);
       console.log(`✅ [SCREENSHOT] Additional wait completed`);
@@ -276,6 +305,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     } catch (navigationError: any) {
       if (responseSent) {
         console.log(`ℹ️ [SCREENSHOT] Navigation skipped, response already sent`);
+        await closeBrowser();
         return;
       }
       
@@ -290,24 +320,25 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       } catch (fallbackError: any) {
         if (responseSent) {
           console.log(`ℹ️ [SCREENSHOT] Fallback navigation skipped, response already sent`);
+          await closeBrowser();
           return;
         }
         throw fallbackError;
       }
     }
 
-    if (responseSent) return;
+    if (responseSent) {
+      await closeBrowser();
+      return;
+    }
 
     // Close browser
     console.log(`🔒 [SCREENSHOT] Closing browser...`);
-    try {
-      await browser.close();
-      console.log(`✅ [SCREENSHOT] Browser closed`);
-    } catch (closeError: any) {
-      console.log(`⚠️ [SCREENSHOT] Browser already closed: ${closeError.message}`);
-    }
+    await closeBrowser();
 
-    if (responseSent) return;
+    if (responseSent) {
+      return;
+    }
 
     const endTime = Date.now();
     const duration = endTime - startTime;
@@ -321,6 +352,13 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     });
 
   } catch (error: any) {
+    // Try to close browser if still open
+    try {
+      if (browser) {
+        await browser.close().catch(() => {});
+      }
+    } catch {}
+    
     const endTime = Date.now();
     const duration = endTime - startTime;
     console.error(`💥 [SCREENSHOT] Error occurred after ${duration}ms:`, error);
