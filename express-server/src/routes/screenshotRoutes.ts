@@ -60,9 +60,9 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     // Launch browser
     // const pwEndpoint = `ws://browserless:3000?token=JLIyO58cbu`;
     console.log(`🌐 [SCREENSHOT] Connecting to Browserless...`);
-    // const pwEndpoint = `ws://headless-chrome:${process.env.BROWSERLESS_PORT}?token=${process.env.BROWSERLESS_API_TOKEN}`;
-    // const browser = await chromium.connectOverCDP(pwEndpoint);
-    const browser = await chromium.launch({ headless: true });
+    const pwEndpoint = `ws://headless-chrome:${process.env.BROWSERLESS_PORT}?token=${process.env.BROWSERLESS_API_TOKEN}`;
+    const browser = await chromium.connectOverCDP(pwEndpoint);
+    // const browser = await chromium.launch({ headless: true });
     console.log(`✅ [SCREENSHOT] Browser connected successfully`);
 
     // Proxy configuration using ProxyManager
