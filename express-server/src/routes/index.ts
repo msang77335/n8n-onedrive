@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import screenshotRoutes from './screenshotRoutes';
 import batchScreenshotRoutes from './batchScreenshotRoutes';
 import proxyRoutes from './proxyRoutes';
+import trackingRoutes from './trackingRoutes';
 
 const router = Router();
 
@@ -9,6 +10,7 @@ const router = Router();
 router.use('/screenshot', screenshotRoutes);
 router.use('/batch-screenshot', batchScreenshotRoutes);
 router.use('/proxies', proxyRoutes);
+router.use('/tracking', trackingRoutes);
 
 // Default API route
 router.get('/', (req: Request, res: Response): void => {
@@ -21,7 +23,8 @@ router.get('/', (req: Request, res: Response): void => {
       health: '/health',
       screenshot: '/api/v1/screenshot',
       batchScreenshot: '/api/v1/batch-screenshot',
-      proxies: '/api/v1/proxies'
+      proxies: '/api/v1/proxies',
+      tracking: '/api/v1/tracking'
     }
   });
 });
