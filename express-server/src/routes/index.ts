@@ -4,6 +4,7 @@ import batchScreenshotRoutes from './batchScreenshotRoutes';
 import proxyRoutes from './proxyRoutes';
 import trackingRoutes from './trackingRoutes';
 import jtTrackingRoutes from './jtTrackingRoutes';
+import mockScreenshotRoutes from './mockScreenshotRoutes';
 
 const router = Router();
 
@@ -13,6 +14,7 @@ router.use('/batch-screenshot', batchScreenshotRoutes);
 router.use('/proxies', proxyRoutes);
 router.use('/tracking', trackingRoutes);
 router.use('/jt-tracking', jtTrackingRoutes);
+router.use('/mock-screenshot', mockScreenshotRoutes);
 
 // Default API route
 router.get('/', (req: Request, res: Response): void => {
@@ -27,7 +29,8 @@ router.get('/', (req: Request, res: Response): void => {
       batchScreenshot: '/api/v1/batch-screenshot',
       proxies: '/api/v1/proxies',
       tracking: '/api/v1/tracking',
-      jtTracking: '/api/v1/jt-tracking'
+      jtTracking: '/api/v1/jt-tracking',
+      mockScreenshot: '/api/v1/mock-screenshot'
     }
   });
 });
