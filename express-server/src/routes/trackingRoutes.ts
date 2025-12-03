@@ -101,6 +101,8 @@ router.post('/', (req: Request, res: Response): void => {
     
     // Get tracking data from request body
     const trackingData = req.body as TrackingData;
+
+    console.log('📦 [TRACKING] Received tracking data:', trackingData);
     
     if (trackingData?.tracking) {
       const { tracking, tracking_number } = trackingData;
