@@ -5,6 +5,7 @@ import proxyRoutes from './proxyRoutes';
 import trackingRoutes from './trackingRoutes';
 import jtTrackingRoutes from './jtTrackingRoutes';
 import mockScreenshotRoutes from './mockScreenshotRoutes';
+import failedProxiesRoutes from './failedProxiesRoutes';
 
 const router = Router();
 
@@ -15,14 +16,13 @@ router.use('/proxies', proxyRoutes);
 router.use('/tracking', trackingRoutes);
 router.use('/jt-tracking', jtTrackingRoutes);
 router.use('/mock-screenshot', mockScreenshotRoutes);
+router.use('/failed-proxies', failedProxiesRoutes);
 
 // Default API route
 router.get('/', (req: Request, res: Response): void => {
   res.json({
     success: true,
     message: 'Express API Server is running!',
-    version: '1.0.0',
-    timestamp: new Date().toISOString(),
     endpoints: {
       health: '/health',
       screenshot: '/api/v1/screenshot',
@@ -30,7 +30,8 @@ router.get('/', (req: Request, res: Response): void => {
       proxies: '/api/v1/proxies',
       tracking: '/api/v1/tracking',
       jtTracking: '/api/v1/jt-tracking',
-      mockScreenshot: '/api/v1/mock-screenshot'
+      mockScreenshot: '/api/v1/mock-screenshot',
+      failedProxies: '/api/v1/failed-proxies'
     }
   });
 });
