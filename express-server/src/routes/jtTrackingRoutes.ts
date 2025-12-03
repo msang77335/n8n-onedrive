@@ -99,6 +99,89 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       await (await browser.newContext({ proxy: proxyConfig })).newPage() :
       await browser.newPage();
 
+    // Flag to track if response has been sent
+    let responseSent = false;
+
+    // Set up route interception for AfterShip API requests
+    await page.route('**/*', (route) => {
+      const BLOCKED = [
+        'googletagmanager.com',
+        'google-analytics.com',
+        'doubleclick.net',
+      ];
+      const request = route.request();
+      const requestUrl = request.url();
+      const resourceType = request.resourceType();
+
+      // if (['image', 'font', 'stylesheet'].includes(resourceType)) {
+      //   return route.abort();  // chặn
+      // }
+
+      if (BLOCKED.some(domain => requestUrl.includes(domain))) {
+        return route.abort();
+      }
+
+      return route.continue();
+    });
+
+    // Handle AfterShip API tracking requests
+    if (url.includes('aftership.com')) {
+      try {
+        console.log(`🚢 [SCREENSHOT] Handling AfterShip tracking API...`);
+
+        // Listen for network responses to catch AfterShip API calls
+        page.on('response', async (response) => {
+          if (responseSent) return; // Skip if response already sent
+          
+          console.log(`🔍 [SCREENSHOT] Network response:`, response.url());
+          if (response.url().includes('track.aftership.com/api/v2/direct-trackings/batch')) {
+            try {
+              console.log(`📡 [SCREENSHOT] Caught AfterShip API response:`, {
+                url: response.url(),
+                status: response.status(),
+                method: response.request().method()
+              });
+
+              const responseData = await response.json().catch(() => null);
+              if (responseData && !responseSent) {
+                responseSent = true; // Set flag before closing browser
+                
+                console.log(`📦 [SCREENSHOT] AfterShip API response data:`, JSON.stringify(responseData, null, 2));
+                
+                // Return API response data instead of taking screenshot
+                await browser.close().catch(() => {});
+                console.log(`✅ [SCREENSHOT] Browser closed after getting API data`);
+                
+                const endTime = Date.now();
+                const duration = endTime - startTime;
+                console.log(`🎉 [SCREENSHOT] AfterShip API data retrieved in ${duration}ms`);
+                
+                res.json({
+                  success: true,
+                  data: responseData,
+                  duration: `${duration}ms`
+                });
+                return;
+              }
+            } catch (apiError: any) {
+              console.log(`⚠️ [SCREENSHOT] Error handling AfterShip API response:`, apiError.message);
+            }
+          }
+        });
+
+        // Wait for potential API calls to complete
+        await page.waitForTimeout(3000);
+        console.log(`✅ [SCREENSHOT] AfterShip API handling completed`);
+      } catch (aftershipError: any) {
+        console.log(`⚠️ [SCREENSHOT] AfterShip API handling error:`, aftershipError.message);
+      }
+    }
+    
+    // Check if response was already sent
+    if (responseSent) {
+      return;
+    }
+
     console.log(`📄 [SCREENSHOT] Page created with proxy config:`, proxyConfig || 'none');
 
     // Set extra headers (bao gồm User-Agent)
@@ -148,11 +231,15 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     // Navigate to URL
     console.log(`🌍 [SCREENSHOT] Navigating to URL: ${url}...`);
     try {
+      if (responseSent) return; // Check before navigation
+      
       await page.goto(url, {
-        waitUntil: 'domcontentloaded', // Thay đổi từ 'networkidle' thành 'domcontentloaded'
-        timeout: 60000 // Tăng timeout lên 60 giây
+        waitUntil: 'domcontentloaded',
+        timeout: 60000
       });
       console.log(`✅ [SCREENSHOT] Page loaded successfully`);
+
+      if (responseSent) return; // Check after navigation
 
       // Kiểm tra và xử lý Cloudflare verification
       const isCloudflareChallenge = await page.$('input[name="cf-turnstile-response"]') ||
@@ -171,15 +258,21 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
           console.log(`⚠️ [SCREENSHOT] Cloudflare challenge timeout, continuing anyway...`);
         }
 
+        if (responseSent) return; // Check after Cloudflare handling
+        
         // Đợi thêm để trang load
         await page.waitForTimeout(10000);
       }
+
+      if (responseSent) return; // Check before final wait
 
       // Đợi thêm một chút để page render hoàn toàn
       await page.waitForTimeout(Number.parseInt(waitForTimeout || '30000', 10));
       console.log(`✅ [SCREENSHOT] Additional wait completed`);
 
     } catch (navigationError: any) {
+      if (responseSent) return; // Response already sent, ignore error
+      
       console.log(`⚠️ [SCREENSHOT] Navigation error, trying with load event: ${navigationError.message}`);
       // Fallback: thử với 'load' event
       await page.goto(url, {
@@ -189,42 +282,9 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       console.log(`✅ [SCREENSHOT] Page loaded with fallback method`);
     }
 
-    // Scroll để trigger lazy loading và đảm bảo content load đầy đủ
-    console.log(`📜 [SCREENSHOT] Performing scroll to trigger lazy loading...`);
-    try {
-      await page.waitForTimeout(1000);
+    if (responseSent) return; // Final check before closing browser
 
-      // Scroll xuống một chút để trigger lazy loading
-      const isAfterShip = url.includes('aftership.com');
-      if (isAfterShip) {
-        console.log(`📜 [SCREENSHOT] Special scroll for aftership.com`);
-        await page.evaluate(() => {
-          (globalThis as any).scrollTo(0, 700);
-        });
-      }
-
-      await page.waitForTimeout(2000);
-      console.log(`✅ [SCREENSHOT] Scroll completed`);
-    } catch (scrollError: any) {
-      console.log(`⚠️ [SCREENSHOT] Scroll error: ${scrollError.message}`);
-    }
-
-    console.log(`📸 [SCREENSHOT] Preparing screenshot options...`);
-    const screenshotOptions: any = {
-      fullPage: fullPage === 'true'
-    };
-
-    if (format === 'jpeg' || format === 'jpg') {
-      screenshotOptions.type = 'jpeg';
-      screenshotOptions.quality = Number.parseInt(quality, 10);
-    } else {
-      screenshotOptions.type = 'png';
-    }
-    console.log(`📸 [SCREENSHOT] Screenshot options:`, screenshotOptions);
-
-    console.log(`📸 [SCREENSHOT] Taking screenshot...`);
-    const screenshotBuffer = await page.screenshot(screenshotOptions);
-    console.log(`✅ [SCREENSHOT] Screenshot taken! Size: ${screenshotBuffer.length} bytes`);
+    // Close browser after getting API data
     console.log(`🔒 [SCREENSHOT] Closing browser...`);
     try {
       await browser.close();
@@ -233,19 +293,19 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       console.log(`⚠️ [SCREENSHOT] Browser already closed: ${closeError.message}`);
     }
 
+    if (responseSent) return; // Don't send error if response already sent
+
     const endTime = Date.now();
     const duration = endTime - startTime;
-    console.log(`🎉 [SCREENSHOT] Screenshot completed in ${duration}ms for URL: ${url}`);
+    console.log(`🎉 [SCREENSHOT] Request completed in ${duration}ms for URL: ${url}`);
 
-    // Set appropriate content type and return image
-    const contentType = format === 'jpeg' || format === 'jpg' ? 'image/jpeg' : 'image/png';
-    res.set({
-      'Content-Type': contentType,
-      'Content-Length': screenshotBuffer.length.toString(),
-      'Content-Disposition': `inline; filename="screenshot.${format}"`
+    // Return error if no API data was captured
+    res.status(404).json({
+      success: false,
+      error: 'No AfterShip API data captured',
+      message: 'The page did not make the expected API call to track.aftership.com',
+      duration: `${duration}ms`
     });
-
-    res.send(screenshotBuffer);
 
   } catch (error: any) {
     const endTime = Date.now();
