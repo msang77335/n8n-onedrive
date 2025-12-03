@@ -66,9 +66,9 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     // Launch browser
     // const pwEndpoint = `ws://browserless:3000?token=JLIyO58cbu`;
     console.log(`🌐 [SCREENSHOT] Connecting to Browserless...`);
-    const pwEndpoint = `ws://headless-chrome:${process.env.BROWSERLESS_PORT}?token=${process.env.BROWSERLESS_API_TOKEN}`;
-    const browser = await chromium.connectOverCDP(pwEndpoint);
-    // const browser = await chromium.launch({ headless: true });
+    // const pwEndpoint = `ws://headless-chrome:${process.env.BROWSERLESS_PORT}?token=${process.env.BROWSERLESS_API_TOKEN}`;
+    // const browser = await chromium.connectOverCDP(pwEndpoint);
+    const browser = await chromium.launch({ headless: true });
     console.log(`✅ [SCREENSHOT] Browser connected successfully`);
 
     // Proxy configuration using ProxyManager
@@ -171,14 +171,14 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
         });
 
         // Then use fetch API to make POST request and reload with response
-        await page.evaluate(async ({ targetUrl, body, customHeaders }) => {
+        await page.evaluate(async ({ targetUrl, bodyString, customHeaders }) => {
           const response = await fetch(targetUrl, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               ...customHeaders
             },
-            body: JSON.stringify(body)
+            body: bodyString
           });
           
           // Get the response and reload page with it
@@ -189,7 +189,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
           document.write(html);
           // @ts-ignore
           document.close();
-        }, { targetUrl: url, body: postBody, customHeaders: headers || {} });
+        }, { targetUrl: url, bodyString: postBody, customHeaders: headers || {} });
 
         console.log(`✅ [SCREENSHOT] POST request completed and page updated`);
       } else {
