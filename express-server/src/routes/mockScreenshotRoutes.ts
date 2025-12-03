@@ -160,38 +160,25 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
         timeout: 60000
       };
 
-      // If POST method with body, use page.evaluate to submit form or fetch
+      // If POST method with body, use page.route to intercept and modify request
       if (method === 'POST' && postBody) {
         console.log(`📤 [SCREENSHOT] Using POST method with body`);
         
-        // First navigate to get the page context
-        await page.goto(url, {
-          waitUntil: 'domcontentloaded',
-          timeout: 60000
-        });
-
-        // Then use fetch API to make POST request and reload with response
-        await page.evaluate(async ({ targetUrl, bodyString, customHeaders }) => {
-          const response = await fetch(targetUrl, {
+        // Intercept the request and modify it to POST with body
+        await page.route(url, async route => {
+          await route.continue({
             method: 'POST',
+            postData: postBody,
             headers: {
               'Content-Type': 'application/json',
-              ...customHeaders
-            },
-            body: bodyString
+              ...(headers || {})
+            }
           });
-          
-          // Get the response and reload page with it
-          const html = await response.text();
-          // @ts-ignore
-          document.open();
-          // @ts-ignore
-          document.write(html);
-          // @ts-ignore
-          document.close();
-        }, { targetUrl: url, bodyString: postBody, customHeaders: headers || {} });
+        });
 
-        console.log(`✅ [SCREENSHOT] POST request completed and page updated`);
+        // Navigate with the intercepted POST request
+        await page.goto(url, gotoOptions);
+        console.log(`✅ [SCREENSHOT] POST request completed and page loaded`);
       } else {
         // Regular GET navigation
         await page.goto(url, gotoOptions);
