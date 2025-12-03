@@ -161,9 +161,13 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
                   });
                 } else {
                   console.log(`🎉 [SCREENSHOT] AfterShip API data retrieved in ${duration}ms`);
+                  
+                  // Extract only the first tracking item from direct_trackings array
+                  const firstTracking = responseData.data?.direct_trackings?.[0] || null;
+                  
                   res.json({
                     success: true,
-                    data: responseData,
+                    data: firstTracking,
                     duration: `${duration}ms`
                   });
                 }
