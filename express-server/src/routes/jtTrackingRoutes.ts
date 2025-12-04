@@ -223,6 +223,9 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     // Navigate to URL
     console.log(`🌍 [SCREENSHOT] Navigating to URL: ${url}...`);
     try {
+      if (page.isClosed()) {
+        throw new Error('Page was closed before navigation could start');
+      }
       await page.goto(url, {
         waitUntil: 'domcontentloaded',
         timeout: 90000
@@ -233,10 +236,15 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       if (!page.isClosed()) {
         await page.waitForTimeout(30000);
         console.log(`✅ [SCREENSHOT] Additional wait completed`);
+      } else {
+        throw new Error('Page was closed before waitForTimeout after navigation');
       }
 
     } catch (navigationError: any) {
-
+      if (page.isClosed()) {
+        console.log(`❌ [SCREENSHOT] Page is closed during navigation error handling: ${navigationError.message}`);
+        throw new Error('Page was closed unexpectedly during navigation');
+      }
       console.log(`⚠️ [SCREENSHOT] Navigation error, trying with load event: ${navigationError.message}`);
 
       // Check if error is due to closed browser/page
@@ -245,12 +253,19 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       }
 
       try {
+        if (page.isClosed()) {
+          throw new Error('Page was closed before fallback navigation could start');
+        }
         await page.goto(url, {
           waitUntil: 'load',
           timeout: 60000
         });
         console.log(`✅ [SCREENSHOT] Page loaded with fallback method`);
       } catch (fallbackError: any) {
+        if (page.isClosed()) {
+          console.log(`❌ [SCREENSHOT] Page is closed during fallback navigation: ${fallbackError.message}`);
+          throw new Error('Page was closed unexpectedly during fallback navigation');
+        }
         throw fallbackError;
       }
     }
