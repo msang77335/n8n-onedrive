@@ -225,25 +225,6 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       });
       console.log(`✅ [SCREENSHOT] Page loaded successfully`);
 
-      // Check and handle Cloudflare verification
-      const isCloudflareChallenge = await page.$('input[name="cf-turnstile-response"]') ||
-        await page.$('.cf-browser-verification') ||
-        await page.$('#cf-challenge-running') ||
-        await page.locator('text=Verify you are human').first().isVisible().catch(() => false);
-
-      if (isCloudflareChallenge) {
-        console.log(`🛡️ [SCREENSHOT] Cloudflare challenge detected, waiting...`);
-
-        try {
-          await page.waitForURL((url: URL) => !url.toString().includes('challenge'), { timeout: 30000 });
-          console.log(`✅ [SCREENSHOT] Cloudflare challenge passed`);
-        } catch {
-          console.log(`⚠️ [SCREENSHOT] Cloudflare challenge timeout, continuing anyway...`);
-        }
-
-        await page.waitForTimeout(10000);
-      }
-
       await page.waitForTimeout(30000);
       console.log(`✅ [SCREENSHOT] Additional wait completed`);
 
