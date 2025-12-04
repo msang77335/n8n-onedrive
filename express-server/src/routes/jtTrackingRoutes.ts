@@ -17,6 +17,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   console.log(`🚀 [SCREENSHOT] Starting screenshot request at ${new Date().toISOString()}`);
 
   let browser: any = null;
+  let browserClosed = false;
 
   try {
     const {
@@ -72,17 +73,20 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       }
     }
 
-    const page = proxyConfig ?
-      await (await browser.newContext({ proxy: proxyConfig })).newPage() :
-      await browser.newPage();
+    const context = proxyConfig ?
+      await browser.newContext({ proxy: proxyConfig }) :
+      await browser.newContext();
+    
+    const page = await context.newPage();
 
-    let browserClosed = false;
     let isBlockedRequest = false;
 
     const closeBrowser = async () => {
       if (!browserClosed) {
         browserClosed = true;
         try {
+          await page.close().catch(() => {});
+          await context.close().catch(() => {});
           await browser.close();
           console.log(`✅ [SCREENSHOT] Browser closed`);
         } catch (closeError: any) {
@@ -221,21 +225,29 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     try {
       await page.goto(url, {
         waitUntil: 'domcontentloaded',
-        timeout: 60000
+        timeout: 90000
       });
       console.log(`✅ [SCREENSHOT] Page loaded successfully`);
 
-      await page.waitForTimeout(30000);
-      console.log(`✅ [SCREENSHOT] Additional wait completed`);
+      // Check if page is still open before waiting
+      if (!page.isClosed()) {
+        await page.waitForTimeout(30000);
+        console.log(`✅ [SCREENSHOT] Additional wait completed`);
+      }
 
     } catch (navigationError: any) {
 
       console.log(`⚠️ [SCREENSHOT] Navigation error, trying with load event: ${navigationError.message}`);
 
+      // Check if error is due to closed browser/page
+      if (navigationError.message.includes('Target page, context or browser has been closed')) {
+        throw new Error('Browser was closed unexpectedly during navigation');
+      }
+
       try {
         await page.goto(url, {
           waitUntil: 'load',
-          timeout: 45000
+          timeout: 60000
         });
         console.log(`✅ [SCREENSHOT] Page loaded with fallback method`);
       } catch (fallbackError: any) {
@@ -259,6 +271,12 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     }
 
     console.log(`📸 [SCREENSHOT] Taking screenshot...`);
+    
+    // Check if page is still open before taking screenshot
+    if (page.isClosed()) {
+      throw new Error('Page was closed before screenshot could be taken');
+    }
+    
     await page.evaluate(() => {
       (globalThis as any).scrollTo(0, 800);
     });
@@ -269,12 +287,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     });
     console.log(`✅ [SCREENSHOT] Screenshot taken! Size: ${screenshotBuffer.length} bytes`);
     console.log(`🔒 [SCREENSHOT] Closing browser...`);
-    try {
-      await browser.close();
-      console.log(`✅ [SCREENSHOT] Browser closed`);
-    } catch (closeError: any) {
-      console.log(`⚠️ [SCREENSHOT] Browser already closed: ${closeError.message}`);
-    }
+    await closeBrowser();
 
     // Set appropriate content type and return image
     res.set({
@@ -287,7 +300,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   } catch (error: any) {
     // Try to close browser if still open
     try {
-      if (browser) {
+      if (browser && !browserClosed) {
         await browser.close().catch(() => { });
       }
     } catch { }
@@ -297,12 +310,15 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     console.error(`💥 [SCREENSHOT] Error occurred after ${duration}ms:`, error);
     console.error(`💥 [SCREENSHOT] Error stack:`, error.stack);
 
-    res.status(500).json({
-      success: false,
-      error: 'Failed to process request',
-      message: error.message,
-      duration: `${duration}ms`
-    });
+    // Check if response was already sent
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        error: 'Failed to process request',
+        message: error.message,
+        duration: `${duration}ms`
+      });
+    }
   }
 });
 
