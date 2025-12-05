@@ -149,7 +149,7 @@ async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffe
   const page = await browser.newPage();
   
   // Set a realistic viewport
-  await page.setViewport({ width: 1920, height: 1080 });
+  await page.setViewport({ width: 1280, height: 620 });
 
   // Set extra headers to appear more human-like
   await page.setExtraHTTPHeaders({
