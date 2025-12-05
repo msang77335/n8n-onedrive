@@ -1,4 +1,6 @@
 import { Request, Response, Router } from 'express';
+import puppeteer from 'puppeteer-extra'
+import RecaptchaPlugin from 'puppeteer-extra-plugin-recaptcha'
 
 function isViettelPost(providerStr: string) {
   const upperStr = providerStr.toUpperCase();
@@ -21,6 +23,11 @@ function isGiaoHangNhanh(providerStr: string) {
 function isJTExpress(providerStr: string) {
   return providerStr.toUpperCase().includes('J&T') || providerStr.toUpperCase().includes('JT EXPRESS');
 }
+
+function isBestExpress(providerStr: string) {
+  return providerStr.toUpperCase().includes('BEST EXPRESS');
+}
+
 
 const router = Router();
 
@@ -68,7 +75,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       })
     }
 
-    if(isSPX(provider)) {
+    if (isSPX(provider)) {
       screenshotBuffer = await fetch("http://headless-chrome:3000/screenshot?token=JLIyO58cbu", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -84,6 +91,17 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
           waitForTimeout: 10000
         })
       })
+    }
+
+    if (isBestExpress(provider)) {
+      const screenshotBuffer = await bestExpressScreenshouter({ provider, codes });
+      res.set({
+        'Content-Type': 'image/png',
+        'Content-Length': screenshotBuffer.length.toString(),
+        'Content-Disposition': `inline; filename="screenshot.png"`
+      });
+      res.send(screenshotBuffer);
+      return;
     }
 
     if (!screenshotBuffer?.ok) {
@@ -110,5 +128,41 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     });
   }
 });
+
+async function bestExpressScreenshouter({ provider, codes }: ScreenshotQuery): Promise<Buffer> {
+  puppeteer.use(
+    RecaptchaPlugin({
+      provider: {
+        id: '2captcha',
+        token: `${process.env.CAPTCHA_API_TOKEN}` // REPLACE THIS WITH YOUR OWN 2CAPTCHA API KEY ⚡
+      },
+      visualFeedback: true // colorize reCAPTCHAs (violet = detected, green = solved)
+    })
+  );
+
+  const pwEndpoint = `ws://headless-chrome:${process.env.BROWSERLESS_PORT}?token=${process.env.BROWSERLESS_API_TOKEN}`;
+  const browser = await puppeteer.connect({ browserWSEndpoint: pwEndpoint });
+  const page = await browser.newPage();
+  await page.setViewport({ width: 1280, height: 680 });
+  await page.goto('https://www.aftership.com/track?c=jtexpress-vn&t=859882419163,859886765769,859887559163,859884882564,859881603267');
+
+  await new Promise(resolve => setTimeout(resolve, 5000));
+
+  // That's it, a single line of code to solve reCAPTCHAs 🎉
+  await page.solveRecaptchas();
+
+  await new Promise(resolve => setTimeout(resolve, 10000));
+
+  await page.evaluate(() => {
+    (globalThis as any).scrollTo(0, 250);
+  });
+
+  await new Promise(resolve => setTimeout(resolve, 5000));
+
+  const screenshotBuffer = await page.screenshot({ type: "jpeg", fullPage: false, quality: 100 }) as Buffer;
+  await browser.close();
+
+  return screenshotBuffer;
+}
 
 export default router;
