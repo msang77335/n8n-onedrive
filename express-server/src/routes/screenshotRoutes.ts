@@ -73,7 +73,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          url: `https://spx.com.vn/tra-cuu-don-hang?order_code=${codes}`,
+          url: `https://spx.vn/track?${codes}`,
           options: {
             fullPage: false
           },
