@@ -211,9 +211,9 @@ async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffe
     quality: 100,
     clip: {
       x: 0,
-      y: 330,
+      y: 370,
       width: 1280,
-      height: 920
+      height: 720
     }
   }) as Buffer;
   
