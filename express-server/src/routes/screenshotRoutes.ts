@@ -129,7 +129,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-async function jtexpressScreenshouter({ provider, codes }: ScreenshotQuery): Promise<Buffer> {
+async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffer> {
   puppeteer.use(
     RecaptchaPlugin({
       provider: {
@@ -144,7 +144,19 @@ async function jtexpressScreenshouter({ provider, codes }: ScreenshotQuery): Pro
   const browser = await puppeteer.connect({ browserWSEndpoint: pwEndpoint });
   const page = await browser.newPage();
   await page.setViewport({ width: 1280, height: 680 });
-  await page.goto('https://www.aftership.com/track?c=jtexpress-vn&t=859882419163,859886765769,859887559163,859884882564,859881603267');
+
+  // Set extra headers (bao gồm User-Agent)
+  await page.setExtraHTTPHeaders({
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'DNT': '1',
+    'Connection': 'keep-alive',
+    'Upgrade-Insecure-Requests': '1',
+  });
+  
+  await page.goto(`https://www.aftership.com/track?c=jtexpress-vn&t=${codes}`);
 
   await new Promise(resolve => setTimeout(resolve, 5000));
 
