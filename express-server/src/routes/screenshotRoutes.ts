@@ -208,12 +208,12 @@ async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffe
   const screenshotBuffer = await page.screenshot({ 
     type: "jpeg", 
     fullPage: false, 
-    quality: 90,
+    quality: 100,
     clip: {
       x: 0,
-      y: 250,
+      y: 330,
       width: 1280,
-      height: 620
+      height: 920
     }
   }) as Buffer;
   
