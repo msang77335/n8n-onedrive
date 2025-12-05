@@ -93,8 +93,8 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       })
     }
 
-    if (isBestExpress(provider)) {
-      const screenshotBuffer = await bestExpressScreenshouter({ provider, codes });
+    if (isJTExpress(provider)) {
+      const screenshotBuffer = await jtexpressScreenshouter({ provider, codes });
       res.set({
         'Content-Type': 'image/png',
         'Content-Length': screenshotBuffer.length.toString(),
@@ -129,7 +129,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-async function bestExpressScreenshouter({ provider, codes }: ScreenshotQuery): Promise<Buffer> {
+async function jtexpressScreenshouter({ provider, codes }: ScreenshotQuery): Promise<Buffer> {
   puppeteer.use(
     RecaptchaPlugin({
       provider: {
