@@ -1,6 +1,7 @@
 import { Request, Response, Router } from 'express';
 import puppeteer from 'puppeteer-extra'
 import RecaptchaPlugin from 'puppeteer-extra-plugin-recaptcha'
+import StealthPlugin from 'puppeteer-extra-plugin-stealth'
 
 function isViettelPost(providerStr: string) {
   const upperStr = providerStr.toUpperCase();
@@ -130,6 +131,9 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 });
 
 async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffer> {
+  // Apply stealth plugin to bypass Cloudflare detection
+  puppeteer.use(StealthPlugin());
+  
   puppeteer.use(
     RecaptchaPlugin({
       provider: {
@@ -143,36 +147,86 @@ async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffe
   const pwEndpoint = `ws://headless-chrome:${process.env.BROWSERLESS_PORT}?token=${process.env.BROWSERLESS_API_TOKEN}`;
   const browser = await puppeteer.connect({ browserWSEndpoint: pwEndpoint });
   const page = await browser.newPage();
-  await page.setViewport({ width: 1280, height: 680 });
+  
+  // Set a realistic viewport
+  await page.setViewport({ width: 1920, height: 1080 });
 
-  // Set extra headers (bao gồm User-Agent)
+  // Set extra headers to appear more human-like
   await page.setExtraHTTPHeaders({
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-    'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+    'Accept-Language': 'en-US,en;q=0.9',
     'Accept-Encoding': 'gzip, deflate, br',
-    'DNT': '1',
     'Connection': 'keep-alive',
     'Upgrade-Insecure-Requests': '1',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'none',
+    'Sec-Fetch-User': '?1',
+    'Cache-Control': 'max-age=0',
   });
   
-  await page.goto(`https://www.aftership.com/track?c=jtexpress-vn&t=${codes}`);
-
-  await new Promise(resolve => setTimeout(resolve, 5000));
-
-  // That's it, a single line of code to solve reCAPTCHAs 🎉
-  await page.solveRecaptchas();
-
-  await new Promise(resolve => setTimeout(resolve, 10000));
-
-  await page.evaluate(() => {
-    (globalThis as any).scrollTo(0, 250);
+  console.log(`📍 [JT EXPRESS] Navigating to aftership.com for tracking: ${codes}`);
+  
+  // Navigate with networkidle2 to ensure page is loaded
+  await page.goto(`https://www.aftership.com/track?c=jtexpress-vn&t=${codes}`, {
+    waitUntil: 'networkidle2',
+    timeout: 60000
   });
 
+  // Wait for either content to load or Cloudflare challenge
+  await new Promise(resolve => setTimeout(resolve, 3000));
+
+  // Check if Cloudflare challenge is present
+  const hasCloudflare = await page.evaluate(() => {
+    return (globalThis as any)?.document.body.innerText.includes('Verify you are human') || 
+           (globalThis as any)?.document.body.innerText.includes('Checking your browser') ||
+           (globalThis as any)?.document.title.includes('Just a moment');
+  });
+
+  if (hasCloudflare) {
+    console.log(`🔐 [JT EXPRESS] Cloudflare challenge detected, waiting for bypass...`);
+    // Wait longer for Cloudflare to resolve
+    await new Promise(resolve => setTimeout(resolve, 15000));
+  }
+
+  // Try to solve any reCAPTCHAs present
+  try {
+    await page.solveRecaptchas();
+    console.log(`✅ [JT EXPRESS] ReCAPTCHA solved`);
+  } catch (e) {
+    console.log(`⚠️ [JT EXPRESS] No reCAPTCHA found or failed to solve`);
+    console.error(e);
+  }
+
+  // Wait for tracking content to appear
   await new Promise(resolve => setTimeout(resolve, 5000));
 
-  const screenshotBuffer = await page.screenshot({ type: "jpeg", fullPage: false, quality: 100 }) as Buffer;
+  // Scroll to show tracking details
+  await page.evaluate(() => {
+    (globalThis as any)?.scrollTo({
+      top: 250,
+      behavior: 'smooth'
+    });
+  });
+
+  await new Promise(resolve => setTimeout(resolve, 2000));
+
+  console.log(`📸 [JT EXPRESS] Taking screenshot...`);
+  const screenshotBuffer = await page.screenshot({ 
+    type: "jpeg", 
+    fullPage: false, 
+    quality: 90,
+    clip: {
+      x: 0,
+      y: 0,
+      width: 1280,
+      height: 920
+    }
+  }) as Buffer;
+  
   await browser.close();
+  console.log(`✅ [JT EXPRESS] Screenshot completed successfully`);
 
   return screenshotBuffer;
 }
