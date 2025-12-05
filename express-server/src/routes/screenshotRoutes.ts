@@ -68,6 +68,24 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       })
     }
 
+    if(isSPX(provider)) {
+      screenshotBuffer = await fetch("http://headless-chrome:3000/screenshot?token=JLIyO58cbu", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: `https://spx.com.vn/tra-cuu-don-hang?order_code=${codes}`,
+          options: {
+            fullPage: false
+          },
+          viewport: {
+            width: 1280,
+            height: 920
+          },
+          waitForTimeout: 10000
+        })
+      })
+    }
+
     if (!screenshotBuffer?.ok) {
       throw new Error(`Got non-ok response from GHN API:\n` + (await screenshotBuffer?.text()));
     }
