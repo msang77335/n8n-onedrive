@@ -202,13 +202,6 @@ async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffe
   // Wait for tracking content to appear
   await new Promise(resolve => setTimeout(resolve, 5000));
 
-  // Scroll to show tracking details
-  await page.evaluate(() => {
-    (globalThis as any)?.scrollTo({
-      top: 250,
-    });
-  });
-
   await new Promise(resolve => setTimeout(resolve, 5000));
 
   console.log(`📸 [JT EXPRESS] Taking screenshot...`);
@@ -218,9 +211,9 @@ async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffe
     quality: 90,
     clip: {
       x: 0,
-      y: 0,
+      y: 250,
       width: 1280,
-      height: 920
+      height: 620
     }
   }) as Buffer;
   
