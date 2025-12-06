@@ -1,10 +1,9 @@
+import compression from 'compression';
+import dotenv from 'dotenv';
 import express, { Request, Response } from 'express';
-import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import compression from 'compression';
-import rateLimit from 'express-rate-limit';
-import dotenv from 'dotenv';
 
 import { errorHandler } from './middleware/errorHandler';
 import { notFoundHandler } from './middleware/notFoundHandler';
