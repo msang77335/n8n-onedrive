@@ -148,7 +148,7 @@ async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffe
   const page = await browser.newPage();
   
   // Set a realistic viewport
-  await page.setViewport({ width: 1280, height: 620 });
+  await page.setViewport({ width: 1280, height: 720 });
 
   // Set extra headers to appear more human-like
   await page.setExtraHTTPHeaders({
@@ -206,12 +206,6 @@ async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffe
     type: "jpeg", 
     fullPage: false, 
     quality: 100,
-    clip: {
-      x: 0,
-      y: 0,
-      width: 1280,
-      height: 720
-    }
   }) as Buffer;
   
   await page.close();
