@@ -201,8 +201,6 @@ async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffe
   // Wait for tracking content to appear
   await new Promise(resolve => setTimeout(resolve, 5000));
 
-  await new Promise(resolve => setTimeout(resolve, 5000));
-
   console.log(`📸 [JT EXPRESS] Taking screenshot...`);
   const screenshotBuffer = await page.screenshot({ 
     type: "jpeg", 
@@ -210,7 +208,7 @@ async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffe
     quality: 100,
     clip: {
       x: 0,
-      y: 370,
+      y: 0,
       width: 1280,
       height: 720
     }
