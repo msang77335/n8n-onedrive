@@ -144,9 +144,9 @@ async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffe
     })
   );
 
-  // const pwEndpoint = `ws://headless-chrome:${process.env.BROWSERLESS_PORT}?token=${process.env.BROWSERLESS_API_TOKEN}`;
-  // const browser = await puppeteer.connect({ browserWSEndpoint: pwEndpoint });
-  const browser = await puppeteer.launch({ headless: false });
+  const pwEndpoint = `ws://headless-chrome:${process.env.BROWSERLESS_PORT}?token=${process.env.BROWSERLESS_API_TOKEN}`;
+  const browser = await puppeteer.connect({ browserWSEndpoint: pwEndpoint });
+  // const browser = await puppeteer.launch({ headless: false });
 
   const page = await browser.newPage();
   page.setDefaultNavigationTimeout(120000);
