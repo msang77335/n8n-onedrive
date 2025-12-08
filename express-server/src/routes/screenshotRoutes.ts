@@ -130,14 +130,14 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-async function jtexpressScreenshouter({ provider, codes }: ScreenshotQuery): Promise<Buffer> {
+async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffer> {
   console.log(`📍 [J&T EXPRESS] Starting screenshot for tracking: ${codes}`);
   puppeteer.use(StealthPlugin());
   puppeteer.use(
     RecaptchaPlugin({
       provider: {
         id: '2captcha',
-        token: `${process.env.CAPTCHA_API_TOKEN}`
+        token: "43881b2e08166a992dd875d1516716d7"
       },
       visualFeedback: true
     })
