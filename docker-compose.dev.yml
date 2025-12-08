@@ -13,6 +13,12 @@ services:
           - headless-chrome
     restart: unless-stopped
     environment:
+      - TIMEOUT=60000
+      - STEALTH=true
+      - IGNORE_HTTPS_ERRORS=true
+      - DISABLE_WEBRTC=true
+      - ENABLE_CORS=true
+      - MAX_CONCURRENT_SESSIONS=10
       - TOKEN=${BROWSERLESS_API_TOKEN_LOCAL}
 
   n8n:
