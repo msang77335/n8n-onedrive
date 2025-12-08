@@ -146,27 +146,56 @@ async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffe
 
   const pwEndpoint = `ws://headless-chrome:${process.env.BROWSERLESS_PORT}?token=${process.env.BROWSERLESS_API_TOKEN}`;
   const browser = await puppeteer.connect({ browserWSEndpoint: pwEndpoint });
-  // const browser = await puppeteer.launch({ headless: false });
 
-  const page = await browser.newPage();
-  page.setDefaultNavigationTimeout(120000);
-  page.setDefaultTimeout(120000);
-  await page.setViewport({ width: 1280, height: 1080 });
-  await page.goto(`https://www.aftership.com/track?c=jtexpress-vn&t=${codes}`);
+  let page;
+  try {
+    page = await browser.newPage();
+    page.setDefaultNavigationTimeout(120000);
+    page.setDefaultTimeout(120000);
+    
+    await page.setViewport({ width: 1280, height: 1080 });
+    
+    console.log(`🌐 [J&T EXPRESS] Navigating to aftership.com...`);
+    await page.goto(`https://www.aftership.com/track?c=jtexpress-vn&t=${codes}`, {
+      waitUntil: 'networkidle2'
+    });
 
-  await new Promise(resolve => setTimeout(resolve, 5000));
+    await new Promise(resolve => setTimeout(resolve, 5000));
 
-  // // That's it, a single line of code to solve reCAPTCHAs 🎉
-  await page.solveRecaptchas();
+    console.log(`🔍 [J&T EXPRESS] Attempting to solve reCAPTCHA...`);
+    try {
+      const result = await page.solveRecaptchas();
+      console.log(`✅ [J&T EXPRESS] reCAPTCHA solved:`, result);
+    } catch (captchaError) {
+      console.log(`⚠️ [J&T EXPRESS] reCAPTCHA solving failed or not found:`, captchaError);
+    }
 
-  await new Promise(resolve => setTimeout(resolve, 10000));
+    await new Promise(resolve => setTimeout(resolve, 10000));
 
-  await new Promise(resolve => setTimeout(resolve, 10000));
+    // Check if page is still open before screenshot
+    if (page.isClosed()) {
+      throw new Error('Page was closed before screenshot could be taken');
+    }
 
-  const screenshotBuffer = await page.screenshot({ type: "jpeg", fullPage: false, quality: 100 }) as Buffer;
-  await browser.close();
-
-  return screenshotBuffer;
+    console.log(`📸 [J&T EXPRESS] Taking screenshot...`);
+    const screenshotBuffer = await page.screenshot({ 
+      type: "jpeg", 
+      fullPage: false, 
+      quality: 100 
+    }) as Buffer;
+    
+    console.log(`✅ [J&T EXPRESS] Screenshot completed, size: ${screenshotBuffer.length} bytes`);
+    
+    return screenshotBuffer;
+  } catch (error) {
+    console.error(`💥 [J&T EXPRESS] Error in jtexpressScreenshouter:`, error);
+    throw error;
+  } finally {
+    if (page && !page.isClosed()) {
+      await page.close().catch(e => console.error(`⚠️ [J&T EXPRESS] Error closing page:`, e));
+    }
+    await browser.disconnect().catch(e => console.error(`⚠️ [J&T EXPRESS] Error disconnecting browser:`, e));
+  }
 }
 
 async function isBestExpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffer> {
