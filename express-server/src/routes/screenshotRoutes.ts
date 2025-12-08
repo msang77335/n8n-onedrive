@@ -15,16 +15,6 @@ puppeteer.use(
   })
 );
 
-function isViettelPost(providerStr: string) {
-  const upperStr = providerStr.toUpperCase();
-  return upperStr.includes('VIETTEL POST') || upperStr.includes('VTP - HÀNG CỒNG KỀNH');
-}
-
-function isVietnamePost(providerStr: string) {
-  const upperStr = providerStr.toUpperCase();
-  return upperStr.includes('VN-POST') || upperStr.includes('VIETNAME POST');
-}
-
 function isSPX(providerStr: string) {
   return providerStr.toUpperCase().includes('SPX');
 }
@@ -172,11 +162,7 @@ async function jtexpressScreenshouter({ provider, codes }: ScreenshotQuery): Pro
   await new Promise(resolve => setTimeout(resolve, 5000));
 
   // // That's it, a single line of code to solve reCAPTCHAs 🎉
-  try {
-    await page.solveRecaptchas();
-  } catch (error) {
-    console.log("Error solving reCAPTCHAs:", error);
-  }
+  await page.solveRecaptchas();
 
   await new Promise(resolve => setTimeout(resolve, 10000));
 
