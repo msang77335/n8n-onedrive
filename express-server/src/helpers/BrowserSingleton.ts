@@ -24,7 +24,7 @@ export class BrowserSingleton {
     }
     console.log('🆕 [BROWSER] Creating new browser instance');
     this.browserInstance = await puppeteer.launch({
-      headless: false,
+      headless: true,
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
       args: [
         '--no-sandbox',
