@@ -132,10 +132,6 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 
 async function jtexpressScreenshouter({ provider, codes }: ScreenshotQuery): Promise<Buffer> {
   console.log(`📍 [J&T EXPRESS] Starting screenshot for tracking: ${codes}`);
-  
-  const pwEndpoint = `ws://headless-chrome:${process.env.BROWSERLESS_PORT}?token=${process.env.BROWSERLESS_API_TOKEN}`;
-  const browser = await puppeteer.connect({ browserWSEndpoint: pwEndpoint });
-
   puppeteer.use(StealthPlugin());
   puppeteer.use(
     RecaptchaPlugin({
@@ -146,6 +142,9 @@ async function jtexpressScreenshouter({ provider, codes }: ScreenshotQuery): Pro
       visualFeedback: true
     })
   );
+
+  const pwEndpoint = `ws://headless-chrome:${process.env.BROWSERLESS_PORT}?token=${process.env.BROWSERLESS_API_TOKEN}`;
+  const browser = await puppeteer.connect({ browserWSEndpoint: pwEndpoint });
 
   const page = await browser.newPage();
   await page.setViewport({ width: 1280, height: 1024 });
