@@ -13,7 +13,7 @@ services:
           - headless-chrome
     restart: unless-stopped
     environment:
-      - TOKEN=${BROWSERLESS_API_TOKEN}
+      - TOKEN=${BROWSERLESS_API_TOKEN_LOCAL}
 
   n8n:
     image: docker.n8n.io/n8nio/n8n
@@ -49,6 +49,8 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=8000
+      - BROWSERLESS_API_TOKEN_LOCAL=${BROWSERLESS_API_TOKEN_LOCAL}
+      - CAPTCHA_SOLVER_API_KEY=${CAPTCHA_SOLVER_API_KEY}
       - BROWSERLESS_API_TOKEN=${BROWSERLESS_API_TOKEN}
       - BROWSERLESS_PORT=${BROWSERLESS_PORT}
       - PROXY_LIST=${PROXY_LIST}

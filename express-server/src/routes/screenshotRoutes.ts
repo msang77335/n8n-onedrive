@@ -48,11 +48,11 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     let screenshotBuffer = null;
 
     if (isGiaoHangNhanh(provider)) {
-      screenshotBuffer = await fetch("http://headless-chrome:3000/screenshot?token=JLIyO58cbu", {
+      screenshotBuffer = await fetch(`http://headless-chrome:${process.env.BROWSERLESS_PORT}/screenshot?token=${process.env.BROWSERLESS_API_TOKEN_LOCAL}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          url: "https://donhang.ghn.vn/?order_code=GYUB9HNC",
+          url: `https://donhang.ghn.vn/?order_code=${codes}`,
           options: {
             fullPage: false
           },
@@ -66,7 +66,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     }
 
     if (isSPX(provider)) {
-      screenshotBuffer = await fetch("http://headless-chrome:3000/screenshot?token=JLIyO58cbu", {
+      screenshotBuffer = await fetch(`http://headless-chrome:3000/screenshot?token=${process.env.BROWSERLESS_API_TOKEN_LOCAL}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -138,7 +138,7 @@ async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffe
     RecaptchaPlugin({
       provider: {
         id: '2captcha',
-        token: `43881b2e08166a992dd875d1516716d7`
+        token: process.env.CAPTCHA_SOLVER_API_KEY || ''
       },
       visualFeedback: true
     })
