@@ -1,20 +1,6 @@
 version: '3.8'
 
 services:
-  puppeteer:
-    image: ghcr.io/puppeteer/puppeteer:latest
-    networks:
-      automation-net:
-        aliases:
-          - chrome
-          - browser
-          - headless-chrome
-    restart: unless-stopped
-    environment:
-      # Puppeteer image không có TOKEN như browserless,
-      # nếu bạn cần auth thì tự implement bên Express
-      - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
-      
   browserless:
     image: ghcr.io/browserless/chromium
     # ports:
