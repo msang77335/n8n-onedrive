@@ -147,15 +147,16 @@ async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffe
   const browser = await puppeteer.connect({ browserWSEndpoint: pwEndpoint });
 
   const page = await browser.newPage();
-  await page.setViewport({ width: 1280, height: 1080 });
-  await page.goto(`https://www.aftership.com/track?c=jtexpress-vn&t=${codes}`);
+  page.setDefaultTimeout(120000);
+  page.setDefaultNavigationTimeout(120000);
 
-  await new Promise(resolve => setTimeout(resolve, 5000));
+  await page.setViewport({ width: 1280, height: 1080 });
+  await page.goto(`https://www.aftership.com/track?c=jtexpress-vn&t=${codes}`, { waitUntil: 'load' });
 
   // // That's it, a single line of code to solve reCAPTCHAs 🎉
   await page.solveRecaptchas();
 
-  await new Promise(resolve => setTimeout(resolve, 10000));
+  await page.waitForSelector("#shipment - result - card", { timeout: 60000 });
 
   await new Promise(resolve => setTimeout(resolve, 10000));
 
