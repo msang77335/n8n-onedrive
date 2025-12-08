@@ -3,18 +3,6 @@ import puppeteer from 'puppeteer-extra';
 import RecaptchaPlugin from 'puppeteer-extra-plugin-recaptcha';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 
-// Apply plugins once at module initialization
-puppeteer.use(StealthPlugin());
-puppeteer.use(
-  RecaptchaPlugin({
-    provider: {
-      id: '2captcha',
-      token: `${process.env.CAPTCHA_API_TOKEN}`
-    },
-    visualFeedback: true
-  })
-);
-
 function isSPX(providerStr: string) {
   return providerStr.toUpperCase().includes('SPX');
 }
@@ -143,13 +131,14 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 });
 
 async function jtexpressScreenshouter({ provider, codes }: ScreenshotQuery): Promise<Buffer> {
+  puppeteer.use(StealthPlugin());
   puppeteer.use(
     RecaptchaPlugin({
       provider: {
         id: '2captcha',
-        token: `${process.env.CAPTCHA_API_TOKEN}` // REPLACE THIS WITH YOUR OWN 2CAPTCHA API KEY ⚡
+        token: `${process.env.CAPTCHA_API_TOKEN}`
       },
-      visualFeedback: true // colorize reCAPTCHAs (violet = detected, green = solved)
+      visualFeedback: true
     })
   );
 
