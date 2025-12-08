@@ -1,3 +1,4 @@
+import { BrowserSingleton } from '@/helpers/BrowserSingleton';
 import { Request, Response, Router } from 'express';
 import puppeteer from 'puppeteer-extra';
 import RecaptchaPlugin from 'puppeteer-extra-plugin-recaptcha';
@@ -144,15 +145,8 @@ async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffe
     })
   );
 
-  const browser = await puppeteer.launch((
-    {
-      headless: true,
-      executablePath: '/usr/bin/google-chrome',
-      args: ['--no-sandbox'],
-    }
-  ))
-
   let page;
+  const browser = await BrowserSingleton.getInstance();
   try {
     page = await browser.newPage();
     page.setDefaultNavigationTimeout(120000);
@@ -241,7 +235,6 @@ async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffe
     if (page && !page.isClosed()) {
       await page.close().catch(e => console.error(`⚠️ [J&T EXPRESS] Error closing page:`, e));
     }
-    await browser.disconnect().catch(e => console.error(`⚠️ [J&T EXPRESS] Error disconnecting browser:`, e));
   }
 }
 
