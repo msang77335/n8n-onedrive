@@ -1,4 +1,4 @@
-import { BrowserSingleton } from '@/helpers/BrowserSingleton';
+import { BrowserSingleton } from '../helpers/BrowserSingleton';
 import { Request, Response, Router } from 'express';
 import puppeteer from 'puppeteer-extra';
 import RecaptchaPlugin from 'puppeteer-extra-plugin-recaptcha';
