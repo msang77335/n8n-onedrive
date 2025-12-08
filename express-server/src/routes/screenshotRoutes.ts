@@ -4,6 +4,18 @@ import RecaptchaPlugin from 'puppeteer-extra-plugin-recaptcha';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import { BrowserSingleton } from '../helpers/BrowserSingleton';
 
+// Apply plugins once at module initialization
+puppeteer.use(StealthPlugin());
+puppeteer.use(
+  RecaptchaPlugin({
+    provider: {
+      id: '2captcha',
+      token: `${process.env.CAPTCHA_API_TOKEN}`
+    },
+    visualFeedback: true
+  })
+);
+
 function isViettelPost(providerStr: string) {
   const upperStr = providerStr.toUpperCase();
   return upperStr.includes('VIETTEL POST') || upperStr.includes('VTP - HÀNG CỒNG KỀNH');
@@ -95,7 +107,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     }
 
     if (isJTExpress(provider)) {
-      const screenshotBuffer = await jtexpressScreenshouter({ provider, codes });
+      screenshotBuffer = await jtexpressScreenshouter({ provider, codes });
       res.set({
         'Content-Type': 'image/png',
         'Content-Length': screenshotBuffer.length.toString(),
@@ -131,93 +143,111 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 });
 
 async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffer> {
-  // Apply stealth plugin to bypass Cloudflare detection
-  puppeteer.use(StealthPlugin());
-  
-  puppeteer.use(
-    RecaptchaPlugin({
-      provider: {
-        id: '2captcha',
-        token: `${process.env.CAPTCHA_API_TOKEN}` // REPLACE THIS WITH YOUR OWN 2CAPTCHA API KEY ⚡
-      },
-      visualFeedback: true // colorize reCAPTCHAs (violet = detected, green = solved)
-    })
-  );
-
   const browser = await BrowserSingleton.getInstance();
-  const page = await browser.newPage();
-  
-  // Set a realistic viewport
-  await page.setViewport({ width: 1280, height: 1024 });
+  let page = null;
 
-  // Set extra headers to appear more human-like
-  await page.setExtraHTTPHeaders({
-    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-    'Accept-Language': 'en-US,en;q=0.9',
-    'Accept-Encoding': 'gzip, deflate, br',
-    'Connection': 'keep-alive',
-    'Upgrade-Insecure-Requests': '1',
-    'Sec-Fetch-Dest': 'document',
-    'Sec-Fetch-Mode': 'navigate',
-    'Sec-Fetch-Site': 'none',
-    'Sec-Fetch-User': '?1',
-    'Cache-Control': 'max-age=0',
-  });
-  
-  console.log(`📍 [JT EXPRESS] Navigating to aftership.com for tracking: ${codes}`);
-  
-  // Navigate with networkidle2 to ensure page is loaded
-  await page.goto(`https://www.aftership.com/track?c=jtexpress-vn&t=${codes}`, {
-    waitUntil: 'networkidle2',
-    timeout: 60000
-  });
-
-  // Wait for either content to load or Cloudflare challenge
-  await new Promise(resolve => setTimeout(resolve, 3000));
-
-  // Check if Cloudflare challenge is present
-  const hasCloudflare = await page.evaluate(() => {
-    return (globalThis as any)?.document.body.innerText.includes('Verify you are human') || 
-           (globalThis as any)?.document.body.innerText.includes('Checking your browser') ||
-           (globalThis as any)?.document.title.includes('Just a moment');
-  });
-
-  if (hasCloudflare) {
-    console.log(`🔐 [JT EXPRESS] Cloudflare challenge detected, waiting for bypass...`);
-    // Wait longer for Cloudflare to resolve
-    await new Promise(resolve => setTimeout(resolve, 15000));
-  }
-
-  // Try to solve any reCAPTCHAs present
   try {
-    await page.solveRecaptchas();
-    console.log(`✅ [JT EXPRESS] ReCAPTCHA solved`);
-  } catch (e) {
-    console.log(`⚠️ [JT EXPRESS] No reCAPTCHA found or failed to solve`);
-    console.error(e);
-  }
+    page = await browser.newPage();
 
-  // Wait for tracking content to appear
-  await new Promise(resolve => setTimeout(resolve, 35000));
+    // Set page timeout to prevent premature closure
+    page.setDefaultTimeout(120000); // 2 minutes
+    page.setDefaultNavigationTimeout(120000);
 
-  console.log(`📸 [JT EXPRESS] Taking screenshot...`);
-  const screenshotBuffer = await page.screenshot({ 
-    type: "jpeg", 
-    fullPage: false, 
-    quality: 100,
-    clip: {
-      x: 0,
-      y: 0,
-      width: 1280,
-      height: 1024
+    // Set a realistic viewport
+    await page.setViewport({ width: 1280, height: 1024 });
+
+    // Set extra headers to appear more human-like
+    await page.setExtraHTTPHeaders({
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Accept-Encoding': 'gzip, deflate, br',
+      'Connection': 'keep-alive',
+      'Upgrade-Insecure-Requests': '1',
+      'Sec-Fetch-Dest': 'document',
+      'Sec-Fetch-Mode': 'navigate',
+      'Sec-Fetch-Site': 'none',
+      'Sec-Fetch-User': '?1',
+      'Cache-Control': 'max-age=0',
+    });
+
+    console.log(`📍 [JT EXPRESS] Navigating to aftership.com for tracking: ${codes}`);
+
+    // Navigate with networkidle2 to ensure page is loaded
+    await page.goto(`https://www.aftership.com/track?c=jtexpress-vn&t=${codes}`, {
+      waitUntil: 'networkidle2',
+      timeout: 60000
+    });
+
+    // Wait for either content to load or Cloudflare challenge
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
+    // Check if Cloudflare challenge is present
+    const hasCloudflare = await page.evaluate(() => {
+      return (globalThis as any)?.document.body.innerText.includes('Verify you are human') ||
+        (globalThis as any)?.document.body.innerText.includes('Checking your browser') ||
+        (globalThis as any)?.document.title.includes('Just a moment');
+    });
+
+    if (hasCloudflare) {
+      console.log(`🔐 [JT EXPRESS] Cloudflare challenge detected, waiting for bypass...`);
+      // Wait longer for Cloudflare to resolve
+      await new Promise(resolve => setTimeout(resolve, 15000));
     }
-  }) as Buffer;
-  
-  await page.close();
-  console.log(`✅ [JT EXPRESS] Screenshot completed successfully`);
 
-  return screenshotBuffer;
+    // Try to solve any reCAPTCHAs present
+    try {
+      await page.solveRecaptchas();
+      console.log(`✅ [JT EXPRESS] ReCAPTCHA solved`);
+    } catch (e) {
+      console.log(`⚠️ [JT EXPRESS] No reCAPTCHA found or failed to solve`, e);
+    }
+
+    // Wait for tracking content to appear - wait for actual tracking elements
+    try {
+      // Wait for the main tracking container or content area
+      await page.waitForSelector('[class*="tracking"], [class*="shipment"], main, #root', {
+        timeout: 30000,
+        visible: true
+      });
+      console.log(`✅ [JT EXPRESS] Tracking content loaded`);
+
+      // Additional wait for dynamic content to fully render
+      await new Promise(resolve => setTimeout(resolve, 5000));
+    } catch (e) {
+      console.error(`⚠️ [JT EXPRESS] Timeout or error waiting for tracking content:`, e);
+      // Even if timeout, wait a bit before screenshot
+      await new Promise(resolve => setTimeout(resolve, 3000));
+    }
+
+    console.log(`📸 [JT EXPRESS] Taking screenshot...`);
+    const screenshotBuffer = await page.screenshot({
+      type: "jpeg",
+      fullPage: false,
+      quality: 100,
+      clip: {
+        x: 0,
+        y: 0,
+        width: 1280,
+        height: 1024
+      }
+    }) as Buffer;
+
+    console.log(`✅ [JT EXPRESS] Screenshot completed successfully`);
+    return screenshotBuffer;
+  } catch (error) {
+    console.error(`💥 [JT EXPRESS] Error in jtexpressScreenshouter:`, error);
+    throw error;
+  } finally {
+    if (page) {
+      try {
+        await page.close();
+        console.log(`🔒 [JT EXPRESS] Page closed`);
+      } catch (e) {
+        console.error(`⚠️ [JT EXPRESS] Error closing page:`, e);
+      }
+    }
+  }
 }
 
 export default router;
