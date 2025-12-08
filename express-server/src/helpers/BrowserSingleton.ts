@@ -25,9 +25,18 @@ export class BrowserSingleton {
     console.log('🆕 [BROWSER] Creating new browser instance');
     this.browserInstance = await puppeteer.launch((
       {
-        headless: true,
+        headless: false,
         executablePath: '/usr/bin/google-chrome',
-        args: ['--no-sandbox'],
+        args: [
+          '--no-sandbox',
+          '--disable-blink-features=AutomationControlled',
+          '--disable-web-security',
+          '--disable-features=IsolateOrigins,site-per-process',
+          '--disable-dev-shm-usage',
+          '--disable-infobars',
+          '--window-size=1280,720',
+          '--user-agent="Mozilla/5.0 ... Chrome/120 ..."'
+        ],
       }
     ))
     this.browserInstance.on('disconnected', () => {
