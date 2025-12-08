@@ -1,22 +1,20 @@
 version: '3.8'
 
 services:
-  torproxy:
-    image: dperson/torproxy
-    ports:
-      - "8118:8118"
-      - "9050:9050"
+  puppeteer:
+    image: ghcr.io/puppeteer/puppeteer:latest
     networks:
       automation-net:
         aliases:
-          - tor
-          - torproxy
-          - proxy
+          - chrome
+          - browser
+          - headless-chrome
     restart: unless-stopped
     environment:
-      - TOR_NewCircuitPeriod=60
-      - TOR_MaxCircuitDirtiness=300
-
+      # Puppeteer image không có TOKEN như browserless,
+      # nếu bạn cần auth thì tự implement bên Express
+      - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+      
   browserless:
     image: ghcr.io/browserless/chromium
     # ports:
