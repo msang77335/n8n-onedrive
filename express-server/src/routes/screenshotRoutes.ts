@@ -252,7 +252,7 @@ async function isBestExpressScreenshouter({ codes }: ScreenshotQuery): Promise<B
   myHeaders.append("Content-Type", "application/json");
 
   const graphql = JSON.stringify({
-    query: "mutation Screenshot($url: String!) { \n    goto(url: $url, waitUntil: load) {status } \n    solve { found solved time} \n    waitForTimeout(time: 15000) { time }\n    screenshot(type: jpeg) {base64 }\n}",
+    query: "mutation Screenshot($url: String!) { viewport(width: 1280, height: 720, deviceScaleFactor: 1) { width height deviceScaleFactor } goto(url: $url, waitUntil: load) { status } solve { found solved time } waitForTimeout(time: 15000) { time } screenshot(type: jpeg) { base64 } }",
     variables: { "url": `https://www.trackingmore.com/track?number=${codes}&express=best-vn` }
   });
 
