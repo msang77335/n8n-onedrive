@@ -146,7 +146,9 @@ async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffe
 
   const browser = await puppeteer.launch((
     {
+      headless: true,
       executablePath: '/usr/bin/google-chrome',
+      args: ['--no-sandbox'],
     }
   ))
 
