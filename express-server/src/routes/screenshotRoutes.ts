@@ -137,7 +137,7 @@ async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffe
     RecaptchaPlugin({
       provider: {
         id: '2captcha',
-        token: "43881b2e08166a992dd875d1516716d7"
+        token: process.env.RE_CAPTCHA_TOKEN
       },
       visualFeedback: true
     })
@@ -147,7 +147,7 @@ async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffe
   const browser = await puppeteer.connect({ browserWSEndpoint: pwEndpoint });
 
   const page = await browser.newPage();
-  await page.setViewport({ width: 1280, height: 1024 });
+  await page.setViewport({ width: 1280, height: 1080 });
   await page.goto(`https://www.aftership.com/track?c=jtexpress-vn&t=${codes}`);
 
   await new Promise(resolve => setTimeout(resolve, 5000));
