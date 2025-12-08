@@ -132,31 +132,34 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 
 async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffer> {
   console.log(`📍 [J&T EXPRESS] Starting screenshot for tracking: ${codes}`);
+
   puppeteer.use(StealthPlugin());
   puppeteer.use(
     RecaptchaPlugin({
       provider: {
         id: '2captcha',
-        token: '43881b2e08166a992dd875d1516716d7'
+        token: `${process.env.RE_CAPTCHA_TOKEN}`
       },
       visualFeedback: true
     })
   );
 
-  const pwEndpoint = `ws://headless-chrome:${process.env.BROWSERLESS_PORT}?token=${process.env.BROWSERLESS_API_TOKEN}`;
-  const browser = await puppeteer.connect({ browserWSEndpoint: pwEndpoint });
+  // const pwEndpoint = `ws://headless-chrome:${process.env.BROWSERLESS_PORT}?token=${process.env.BROWSERLESS_API_TOKEN}`;
+  // const browser = await puppeteer.connect({ browserWSEndpoint: pwEndpoint });
+  const browser = await puppeteer.launch({ headless: false });
 
   const page = await browser.newPage();
-  page.setDefaultTimeout(120000);
   page.setDefaultNavigationTimeout(120000);
-
+  page.setDefaultTimeout(120000);
   await page.setViewport({ width: 1280, height: 1080 });
-  await page.goto(`https://www.aftership.com/track?c=jtexpress-vn&t=${codes}`, { waitUntil: 'load' });
+  await page.goto(`https://www.aftership.com/track?c=jtexpress-vn&t=${codes}`);
+
+  await new Promise(resolve => setTimeout(resolve, 5000));
 
   // // That's it, a single line of code to solve reCAPTCHAs 🎉
   await page.solveRecaptchas();
 
-  await page.waitForSelector("#shipment - result - card", { timeout: 60000 });
+  await new Promise(resolve => setTimeout(resolve, 10000));
 
   await new Promise(resolve => setTimeout(resolve, 10000));
 
