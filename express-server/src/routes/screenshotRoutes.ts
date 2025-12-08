@@ -149,6 +149,12 @@ async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffe
   const browser = await BrowserSingleton.getInstance();
   try {
     page = await browser.newPage();
+
+    await page.authenticate({
+      username: 'jdlxhaek',
+      password: 'rmkr551esb7x'
+    });
+
     page.setDefaultNavigationTimeout(120000);
     page.setDefaultTimeout(120000);
 
