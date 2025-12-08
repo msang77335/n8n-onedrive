@@ -137,7 +137,7 @@ async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffe
     RecaptchaPlugin({
       provider: {
         id: '2captcha',
-        token: process.env.RE_CAPTCHA_TOKEN
+        token: '43881b2e08166a992dd875d1516716d7'
       },
       visualFeedback: true
     })
