@@ -166,15 +166,47 @@ async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffe
     try {
       const result = await page.solveRecaptchas();
       console.log(`✅ [J&T EXPRESS] reCAPTCHA solved:`, result);
-    } catch (captchaError) {
-      console.log(`⚠️ [J&T EXPRESS] reCAPTCHA solving failed or not found:`, captchaError);
+      
+      // Wait for page to reload/navigate after CAPTCHA submission
+      if (result.solved && result.solved.length > 0) {
+        console.log(`⏳ [J&T EXPRESS] Waiting for page to reload after CAPTCHA submission...`);
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
+        // Wait for navigation to complete if it happens
+        try {
+          await page.waitForNavigation({ 
+            timeout: 10000, 
+            waitUntil: 'networkidle2' 
+          }).catch(() => {
+            console.log(`ℹ️ [J&T EXPRESS] No navigation detected, page stayed on same URL`);
+          });
+        } catch (navError) {
+          console.log(`⚠️ [J&T EXPRESS] Navigation wait timeout, continuing anyway`);
+          console.error(`⚠️ [J&T EXPRESS] Navigation error details:`, navError);
+        }
+      }
+    } catch (captchaError: any) {
+      console.log(`⚠️ [J&T EXPRESS] reCAPTCHA solving failed or not found:`, captchaError?.message);
     }
 
+    // Extra wait for content to fully load after CAPTCHA
+    // Extra wait for content to fully load after CAPTCHA
     await new Promise(resolve => setTimeout(resolve, 10000));
 
     // Check if page is still open before screenshot
     if (page.isClosed()) {
       throw new Error('Page was closed before screenshot could be taken');
+    }
+
+    // Verify we can still interact with the page
+    try {
+      await page.evaluate(() => {
+        return (globalThis as any).document.readyState;
+      });
+      console.log(`✓ [J&T EXPRESS] Page is responsive and ready for screenshot`);
+    } catch (evalError) {
+      console.error(`✗ [J&T EXPRESS] Page became unresponsive:`, evalError);
+      throw new Error('Page is not responsive for screenshot');
     }
 
     console.log(`📸 [J&T EXPRESS] Taking screenshot...`);
