@@ -144,17 +144,20 @@ async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffe
     })
   );
 
-  const pwEndpoint = `ws://headless-chrome:${process.env.BROWSERLESS_PORT}?token=${process.env.BROWSERLESS_API_TOKEN}`;
-  const browser = await puppeteer.connect({ browserWSEndpoint: pwEndpoint });
+  const browser = await puppeteer.launch((
+    {
+      executablePath: "/usr/bin/chromium",
+    }
+  ))
 
   let page;
   try {
     page = await browser.newPage();
     page.setDefaultNavigationTimeout(120000);
     page.setDefaultTimeout(120000);
-    
+
     await page.setViewport({ width: 1280, height: 1080 });
-    
+
     console.log(`🌐 [J&T EXPRESS] Navigating to aftership.com...`);
     await page.goto(`https://www.aftership.com/track?c=jtexpress-vn&t=${codes}`, {
       waitUntil: 'networkidle2'
@@ -171,27 +174,27 @@ async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffe
         solvedCount: result.solved?.length || 0,
         hasError: !!result.error
       });
-      
+
       // If we have solutions, the CAPTCHA was sent to solver
       if (result.solutions && result.solutions.length > 0) {
         console.log(`⏳ [J&T EXPRESS] CAPTCHA solution received, waiting for page response...`);
-        
+
         // Wait a bit for the solution to be submitted
         await new Promise(resolve => setTimeout(resolve, 3000));
-        
+
         // Create a new page reference after potential reload
         // The old page might be stale/detached
         console.log(`🔄 [J&T EXPRESS] Refreshing page reference...`);
         const pages = await browser.pages();
-        
+
         // Find the active page (last one or the one that's not closed)
         const activePage = pages.find(p => !p.isClosed() && p.url().includes('aftership.com')) || pages[pages.length - 1];
-        
+
         if (activePage && activePage !== page) {
           console.log(`✓ [J&T EXPRESS] Switched to active page`);
           page = activePage;
         }
-        
+
         // Wait for the new page to be ready
         await page.waitForFunction('document.readyState === "complete"', { timeout: 10000 })
           .catch(() => console.log(`⚠️ [J&T EXPRESS] Page readyState check timeout`));
@@ -220,14 +223,14 @@ async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffe
     }
 
     console.log(`📸 [J&T EXPRESS] Taking screenshot...`);
-    const screenshotBuffer = await page.screenshot({ 
-      type: "jpeg", 
-      fullPage: false, 
-      quality: 100 
+    const screenshotBuffer = await page.screenshot({
+      type: "jpeg",
+      fullPage: false,
+      quality: 100
     }) as Buffer;
-    
+
     console.log(`✅ [J&T EXPRESS] Screenshot completed, size: ${screenshotBuffer.length} bytes`);
-    
+
     return screenshotBuffer;
   } catch (error) {
     console.error(`💥 [J&T EXPRESS] Error in jtexpressScreenshouter:`, error);
