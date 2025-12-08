@@ -11,7 +11,7 @@ export class BrowserSingleton {
     }
     console.log('🆕 [BROWSER] Creating new browser instance');
     const pwEndpoint = `ws://headless-chrome:${process.env.BROWSERLESS_PORT}?token=${process.env.BROWSERLESS_API_TOKEN}`;
-    // this.browserInstance = await puppeteer.connect({ browserWSEndpoint: pwEndpoint });
+    this.browserInstance = await puppeteer.connect({ browserWSEndpoint: pwEndpoint });
     this.browserInstance = await puppeteer.launch(({ headless: false}))
     this.browserInstance.on('disconnected', () => {
       console.log('🔌 [BROWSER] Browser disconnected');

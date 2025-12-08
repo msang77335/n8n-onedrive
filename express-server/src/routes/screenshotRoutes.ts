@@ -2,6 +2,7 @@ import { Request, Response, Router } from 'express';
 import puppeteer from 'puppeteer-extra';
 import RecaptchaPlugin from 'puppeteer-extra-plugin-recaptcha';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import { BrowserSingleton } from '../helpers/BrowserSingleton';
 
 function isSPX(providerStr: string) {
   return providerStr.toUpperCase().includes('SPX');
@@ -130,7 +131,9 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-async function jtexpressScreenshouter({ provider, codes }: ScreenshotQuery): Promise<Buffer> {
+async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffer> {
+  console.log(`📍 [J&T EXPRESS] Starting screenshot for tracking: ${codes}`);
+  const browser = await BrowserSingleton.getInstance();
   puppeteer.use(StealthPlugin());
   puppeteer.use(
     RecaptchaPlugin({
@@ -142,8 +145,6 @@ async function jtexpressScreenshouter({ provider, codes }: ScreenshotQuery): Pro
     })
   );
 
-  const pwEndpoint = `ws://headless-chrome:${process.env.BROWSERLESS_PORT}?token=${process.env.BROWSERLESS_API_TOKEN}`;
-  const browser = await puppeteer.connect({ browserWSEndpoint: pwEndpoint });
   const page = await browser.newPage();
   await page.setViewport({ width: 1280, height: 1024 });
   await page.goto(`https://www.aftership.com/track?c=jtexpress-vn&t=${codes}`);
