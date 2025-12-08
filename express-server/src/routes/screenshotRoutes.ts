@@ -1,5 +1,8 @@
-import { Request, Response, Router } from 'express';
 import { BrowserSingleton } from '../helpers/BrowserSingleton';
+import { Request, Response, Router } from 'express';
+import puppeteer from 'puppeteer-extra';
+import RecaptchaPlugin from 'puppeteer-extra-plugin-recaptcha';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 
 function isSPX(providerStr: string) {
   return providerStr.toUpperCase().includes('SPX');
@@ -131,30 +134,23 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffer> {
   console.log(`📍 [J&T EXPRESS] Starting screenshot for tracking: ${codes}`);
 
+  puppeteer.use(StealthPlugin());
+  puppeteer.use(
+    RecaptchaPlugin({
+      provider: {
+        id: '2captcha',
+        token: process.env.CAPTCHA_SOLVER_API_KEY || ''
+      },
+      visualFeedback: true
+    })
+  );
+
   let page;
   const browser = await BrowserSingleton.getInstance();
   try {
     page = await browser.newPage();
     page.setDefaultNavigationTimeout(120000);
     page.setDefaultTimeout(120000);
-    await page.evaluateOnNewDocument(() => {
-      Object.defineProperty((globalThis as any).navigator, 'webdriver', { get: () => false });
-    });
-
-    // Random user agents for better stealth
-    const userAgents = [
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-      'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:121.0) Gecko/20100101 Firefox/121.0'
-    ];
-    const randomUserAgent = userAgents[Math.floor(Math.random() * userAgents.length)];
-
-    await page.setUserAgent(randomUserAgent);
-    console.log(`🎭 [J&T EXPRESS] Using User-Agent: ${randomUserAgent.substring(0, 50)}...`);
 
     await page.setViewport({ width: 1280, height: 1080 });
 
@@ -163,7 +159,7 @@ async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffe
       waitUntil: 'networkidle2'
     });
 
-    await new Promise(resolve => setTimeout(resolve, 10000));
+    await new Promise(resolve => setTimeout(resolve, 5000));
 
     console.log(`🔍 [J&T EXPRESS] Attempting to solve reCAPTCHA...`);
     try {
@@ -174,6 +170,10 @@ async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffe
         solvedCount: result.solved?.length || 0,
         hasError: !!result.error
       });
+
+      if (result.error) {
+        console.log(`⚠️ [J&T EXPRESS] reCAPTCHA solving error:`, result.error);
+      }
 
       // If we have solutions, the CAPTCHA was sent to solver
       if (result.solutions && result.solutions.length > 0) {
