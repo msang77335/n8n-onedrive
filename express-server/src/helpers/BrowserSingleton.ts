@@ -14,7 +14,13 @@ export class BrowserSingleton {
       headless: true,
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
       args: [
-        '--no-sandbox'
+        '--no-sandbox',
+        // 2. Các cờ hỗ trợ Evasion (Né tránh Bot)
+        '--no-first-run',
+        '--no-default-browser-check',
+        '--disable-site-isolation-trials',
+        '--disable-web-security',
+        '--single-process' // Giảm thiểu phát hiện
       ]
     });
     this.browserInstance.on('disconnected', () => {
