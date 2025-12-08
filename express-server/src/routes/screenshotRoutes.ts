@@ -165,31 +165,41 @@ async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffe
     console.log(`🔍 [J&T EXPRESS] Attempting to solve reCAPTCHA...`);
     try {
       const result = await page.solveRecaptchas();
-      console.log(`✅ [J&T EXPRESS] reCAPTCHA solved:`, result);
+      console.log(`✅ [J&T EXPRESS] reCAPTCHA result:`, {
+        captchasFound: result.captchas?.length || 0,
+        solutionsCount: result.solutions?.length || 0,
+        solvedCount: result.solved?.length || 0,
+        hasError: !!result.error
+      });
       
-      // Wait for page to reload/navigate after CAPTCHA submission
-      if (result.solved && result.solved.length > 0) {
-        console.log(`⏳ [J&T EXPRESS] Waiting for page to reload after CAPTCHA submission...`);
-        await new Promise(resolve => setTimeout(resolve, 5000));
+      // If we have solutions, the CAPTCHA was sent to solver
+      if (result.solutions && result.solutions.length > 0) {
+        console.log(`⏳ [J&T EXPRESS] CAPTCHA solution received, waiting for page response...`);
         
-        // Wait for navigation to complete if it happens
-        try {
-          await page.waitForNavigation({ 
-            timeout: 10000, 
-            waitUntil: 'networkidle2' 
-          }).catch(() => {
-            console.log(`ℹ️ [J&T EXPRESS] No navigation detected, page stayed on same URL`);
-          });
-        } catch (navError) {
-          console.log(`⚠️ [J&T EXPRESS] Navigation wait timeout, continuing anyway`);
-          console.error(`⚠️ [J&T EXPRESS] Navigation error details:`, navError);
+        // Wait a bit for the solution to be submitted
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
+        // Create a new page reference after potential reload
+        // The old page might be stale/detached
+        console.log(`🔄 [J&T EXPRESS] Refreshing page reference...`);
+        const pages = await browser.pages();
+        
+        // Find the active page (last one or the one that's not closed)
+        const activePage = pages.find(p => !p.isClosed() && p.url().includes('aftership.com')) || pages[pages.length - 1];
+        
+        if (activePage && activePage !== page) {
+          console.log(`✓ [J&T EXPRESS] Switched to active page`);
+          page = activePage;
         }
+        
+        // Wait for the new page to be ready
+        await page.waitForFunction('document.readyState === "complete"', { timeout: 10000 })
+          .catch(() => console.log(`⚠️ [J&T EXPRESS] Page readyState check timeout`));
       }
     } catch (captchaError: any) {
-      console.log(`⚠️ [J&T EXPRESS] reCAPTCHA solving failed or not found:`, captchaError?.message);
+      console.log(`⚠️ [J&T EXPRESS] reCAPTCHA solving error:`, captchaError?.message);
     }
 
-    // Extra wait for content to fully load after CAPTCHA
     // Extra wait for content to fully load after CAPTCHA
     await new Promise(resolve => setTimeout(resolve, 10000));
 
