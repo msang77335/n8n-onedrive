@@ -1,8 +1,5 @@
-import { BrowserSingleton } from '../helpers/BrowserSingleton';
 import { Request, Response, Router } from 'express';
-import puppeteer from 'puppeteer-extra';
-import RecaptchaPlugin from 'puppeteer-extra-plugin-recaptcha';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import { BrowserSingleton } from '../helpers/BrowserSingleton';
 
 function isSPX(providerStr: string) {
   return providerStr.toUpperCase().includes('SPX');
@@ -134,26 +131,10 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffer> {
   console.log(`📍 [J&T EXPRESS] Starting screenshot for tracking: ${codes}`);
 
-  puppeteer.use(StealthPlugin());
-  puppeteer.use(
-    RecaptchaPlugin({
-      provider: {
-        id: '2captcha',
-        token: process.env.CAPTCHA_SOLVER_API_KEY || ''
-      },
-      visualFeedback: true
-    })
-  );
-
   let page;
   const browser = await BrowserSingleton.getInstance();
   try {
     page = await browser.newPage();
-
-    await page.authenticate({
-      username: 'jdlxhaek',
-      password: 'rmkr551esb7x'
-    });
 
     page.setDefaultNavigationTimeout(120000);
     page.setDefaultTimeout(120000);
@@ -194,7 +175,7 @@ async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffe
         const pages = await browser.pages();
 
         // Find the active page (last one or the one that's not closed)
-        const activePage = pages.find(p => !p.isClosed() && p.url().includes('aftership.com')) || pages[pages.length - 1];
+        const activePage = pages.find(p => !p.isClosed() && p.url().includes('aftership.com')) || pages.at(-1);
 
         if (activePage && activePage !== page) {
           console.log(`✓ [J&T EXPRESS] Switched to active page`);

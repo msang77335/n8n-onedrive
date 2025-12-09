@@ -13,6 +13,9 @@ import apiRoutes from './routes';
 dotenv.config();
 
 const app = express();
+// Trust proxy only from localhost/Docker network (more secure than 'true')
+// If behind nginx/proxy, set to number of proxies or specific IP ranges
+app.set('trust proxy', process.env.TRUST_PROXY || 'loopback, linklocal, uniquelocal');
 const PORT = process.env.PORT || 3000;
 
 // Rate limiting
@@ -34,6 +37,13 @@ app.use(limiter); // Rate limiting
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// Increase timeout for long-running requests (5 minutes)
+app.use((req, res, next) => {
+  req.setTimeout(300000);
+  res.setTimeout(300000);
+  next();
+});
+
 // Health check endpoint
 app.get('/health', (req: Request, res: Response): void => {
   res.status(200).json({
@@ -51,10 +61,13 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 // Start server
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`🚀 Server is running on http://localhost:${PORT}`);
   console.log(`📊 Health check available at http://localhost:${PORT}/health`);
   console.log(`🔗 API endpoints available at http://localhost:${PORT}${process.env.API_PREFIX || '/api/v1'}`);
 });
+
+// Set server timeout to 5 minutes
+server.setTimeout(300000);
 
 export default app;
