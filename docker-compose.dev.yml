@@ -3,7 +3,6 @@ version: '3.8'
 services:
   browserless:
     image: ghcr.io/browserless/chromium
-    container_name: browserless
     restart: unless-stopped
 
     # recaptcha cần port khi bạn muốn truy cập từ local để kiểm tra
@@ -25,7 +24,6 @@ services:
       - STEALTH=true
       - IGNORE_HTTPS_ERRORS=true
       - DISABLE_WEBRTC=true
-      - ENABLE_CORS=true
       - MAX_CONCURRENT_SESSIONS=10
       - TOKEN=${BROWSERLESS_API_TOKEN_LOCAL}
 
