@@ -3,15 +3,23 @@ version: '3.8'
 services:
   browserless:
     image: ghcr.io/browserless/chromium
+    container_name: browserless
+    restart: unless-stopped
+
+    # recaptcha cần port khi bạn muốn truy cập từ local để kiểm tra
     # ports:
     #   - "3000:3000"
+
     networks:
       automation-net:
         aliases:
           - chrome
           - browser
           - headless-chrome
-    restart: unless-stopped
+
+    # FIX lớn nhất cho Chrome headless
+    shm_size: "2gb"
+
     environment:
       - TIMEOUT=60000
       - STEALTH=true
@@ -20,6 +28,21 @@ services:
       - ENABLE_CORS=true
       - MAX_CONCURRENT_SESSIONS=10
       - TOKEN=${BROWSERLESS_API_TOKEN_LOCAL}
+
+      # Chrome flags cần cho reCAPTCHA (KHÔNG được thiếu)
+      - DEFAULT_LAUNCH_ARGS=--disable-dev-shm-usage=false \
+                            --no-sandbox=false \
+                            --disable-gpu=false \
+                            --disable-web-security=false \
+                            --allow-insecure-localhost \
+                            --window-size=1280,720 \
+                            --font-render-hinting=medium \
+                            --enable-font-antialiasing
+
+    # cài fonts để recaptcha render chữ → bắt buộc
+    volumes:
+      - ./fonts:/usr/share/fonts
+
 
   n8n:
     image: docker.n8n.io/n8nio/n8n
@@ -39,6 +62,7 @@ services:
       - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
       - GENERIC_TIMEZONE=${TIMEZONE}
       - WEBHOOK_URL=${WEBHOOK_URL}
+
 
   express-server:
     build:

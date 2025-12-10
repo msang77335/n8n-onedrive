@@ -3,18 +3,6 @@ import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import RecaptchaPlugin from 'puppeteer-extra-plugin-recaptcha';
 
-// Configure plugins
-puppeteer.use(StealthPlugin());
-puppeteer.use(
-  RecaptchaPlugin({
-    provider: {
-      id: '2captcha',
-      token: process.env.CAPTCHA_SOLVER_API_KEY || '',
-    },
-    visualFeedback: true,
-  })
-);
-
 export class BrowserSingleton {
   private static browserInstance: Browser | null = null;
 
@@ -24,17 +12,23 @@ export class BrowserSingleton {
       return this.browserInstance;
     }
     console.log('🆕 [BROWSER] Creating new browser instance');
-    this.browserInstance = await puppeteer.launch({
-      headless: true,
-      executablePath: '/usr/bin/google-chrome',
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-blink-features=AutomationControlled',
-        '--disable-web-security',
-        '--disable-features=IsolateOrigins,site-per-process',
-      ]
+
+    // Configure plugins
+    puppeteer.use(StealthPlugin());
+    puppeteer.use(
+      RecaptchaPlugin({
+        provider: {
+          id: '2captcha',
+          token: process.env.CAPTCHA_SOLVER_API_KEY || '',
+        },
+        visualFeedback: true,
+      })
+    );
+    const pwEndpoint = `ws://headless-chrome:${process.env.BROWSERLESS_PORT}?token=${process.env.BROWSERLESS_API_TOKEN}`;
+    this.browserInstance = await puppeteer.connect({ browserWSEndpoint: pwEndpoint });
+    this.browserInstance.on('disconnected', () => {
+      console.log('🔌 [BROWSER] Browser disconnected');
+      this.browserInstance = null;
     });
     this.browserInstance.on('disconnected', () => {
       console.log('🔌 [BROWSER] Browser disconnected');
