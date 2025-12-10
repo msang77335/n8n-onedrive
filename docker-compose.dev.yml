@@ -16,9 +16,6 @@ services:
           - browser
           - headless-chrome
 
-    # FIX lớn nhất cho Chrome headless
-    shm_size: "2gb"
-
     environment:
       - TIMEOUT=60000
       - STEALTH=true

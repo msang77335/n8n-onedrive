@@ -82,14 +82,14 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     }
 
     if (isJTExpress(provider)) {
-      screenshotBuffer = await jtexpressScreenshouter({ provider, codes });
-      res.set({
-        'Content-Type': 'image/png',
-        'Content-Length': screenshotBuffer.length.toString(),
-        'Content-Disposition': `inline; filename="screenshot.png"`
-      });
-      res.send(screenshotBuffer);
-      return;
+      screenshotBuffer = await fetch(`https://hwzp3g4p-3000.asse.devtunnels.ms/api/v1/screenshot`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider,
+          codes
+        })
+      })
     }
 
     if (isBestExpress(provider)) {
