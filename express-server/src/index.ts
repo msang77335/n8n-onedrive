@@ -39,8 +39,8 @@ app.use(express.urlencoded({ extended: true }));
 
 // Increase timeout for long-running requests (5 minutes)
 app.use((req, res, next) => {
-  req.setTimeout(300000);
-  res.setTimeout(300000);
+  req.setTimeout(5 * 60 * 1000);
+  res.setTimeout(5 * 60 * 1000);
   next();
 });
 
