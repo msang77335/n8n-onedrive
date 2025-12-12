@@ -1,6 +1,5 @@
 import { Request, Response, Router } from 'express';
 import { PlaywrightBrowserSingleton } from '../helpers/PlaywrightBrowserSingleton';
-import { PuppeteerBrowserSingleton } from '../helpers/PuppeteerBrowserSingleton';
 
 
 function isSPX(providerStr: string) {
@@ -52,7 +51,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     }
 
     if (isSPX(provider)) {
-      screenshotBuffer = await playwrightScreenshoter(`https://spx.vn/track?${codes}`);
+      screenshotBuffer = await screenshoter(`https://spx.vn/track?${codes}`);
     }
 
     if (isJTExpress(provider)) {
@@ -97,47 +96,6 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 });
 
 async function screenshoter(url: string): Promise<Buffer> {
-  console.log(`📍 [SCREENSHOT] Starting screenshot for URL: ${url}`);
-  let page;
-  const browser = await PuppeteerBrowserSingleton.getInstance();
-  if (!browser) {
-    throw new Error('Failed to get browser instance');
-  }
-  try {
-    console.log(`🆕 [SCREENSHOT] Creating new page...`);
-    page = await browser.newPage();
-    page.setViewport({ width: 1280, height: 1080 });
-
-    page.setDefaultTimeout(60000); // 60 seconds
-    console.log(`⏱️ [SCREENSHOT] Default timeout set to 60 seconds`);
-
-    console.log(`🌐 [SCREENSHOT] Navigating to ${url}...`);
-    await page.goto(url, {
-      waitUntil: 'networkidle2'
-    });
-    console.log(`✅ [SCREENSHOT] Page loaded successfully`);
-
-    console.log(`⏳ [SCREENSHOT] Waiting 15 seconds for content to load...`);
-    await new Promise(resolve => setTimeout(resolve, 15000));
-
-    console.log(`📸 [SCREENSHOT] Taking screenshot...`);
-    const screenshot = await page.screenshot({ fullPage: false });
-    console.log(`✅ [SCREENSHOT] Screenshot captured, size: ${screenshot.length} bytes`);
-
-    console.log(`✨ [SCREENSHOT] All done!`);
-    return Buffer.from(screenshot);
-  } catch (error) {
-    console.error(`💥 [SCREENSHOT] Error in screenshoter:`, error);
-    throw error;
-  } finally {
-    if (page && !page.isClosed()) {
-      console.log(`🔒 [SCREENSHOT] Closing page in finally block...`);
-      await page.close();
-    }
-  }
-}
-
-async function playwrightScreenshoter(url: string): Promise<Buffer> {
   console.log(`📍 [SCREENSHOT] Starting screenshot for URL: ${url}`);
   let page;
   const browserContext = await PlaywrightBrowserSingleton.getContext();
