@@ -1,5 +1,4 @@
 import { Request, Response, Router } from 'express';
-import { firefox } from 'playwright';
 import { BrowserSingleton } from '../helpers/BrowserSingleton';
 
 function isSPX(providerStr: string) {
@@ -91,11 +90,11 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       //     codes
       //   })
       // })
-      screenshotBuffer = await jtexpressScreenshouterFirefox({ provider, codes });
+      const screenshotBuffer = await jtexpressScreenshouter({ provider, codes });
       res.set({
-        'Content-Type': 'image/png',
+        'Content-Type': 'image/jpeg',
         'Content-Length': screenshotBuffer.length.toString(),
-        'Content-Disposition': `inline; filename="screenshot.png"`
+        'Content-Disposition': `inline; filename="screenshot.jpg"`
       });
       res.send(screenshotBuffer);
       return;
@@ -137,173 +136,55 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-// async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffer> {
-//   console.log(`📍 [J&T EXPRESS] Starting screenshot for tracking: ${codes}`);
+async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffer> {
+  console.log(`📍 [J&T EXPRESS] Starting screenshot for tracking: ${codes}`);
 
-//   let page;
-//   const browser = await BrowserSingleton.getInstance();
-//   try {
-//     page = await browser.newPage();
-
-//     page.setDefaultNavigationTimeout(120000);
-//     page.setDefaultTimeout(120000);
-
-//     await page.setViewport({ width: 1280, height: 1080 });
-
-//     console.log(`🌐 [J&T EXPRESS] Navigating to aftership.com...`);
-//     await page.goto(`https://www.aftership.com/track?c=jtexpress-vn&t=${codes}`, {
-//       waitUntil: 'networkidle2'
-//     });
-
-//     await new Promise(resolve => setTimeout(resolve, 5000));
-
-//     console.log(`🔍 [J&T EXPRESS] Attempting to solve reCAPTCHA...`);
-//     try {
-//       const result = await page.solveRecaptchas();
-//       console.log(`✅ [J&T EXPRESS] reCAPTCHA result:`, {
-//         captchasFound: result.captchas?.length || 0,
-//         solutionsCount: result.solutions?.length || 0,
-//         solvedCount: result.solved?.length || 0,
-//         hasError: !!result.error
-//       });
-
-//       if (result.error) {
-//         console.log(`⚠️ [J&T EXPRESS] reCAPTCHA solving error:`, result.error);
-//       }
-
-//       // If we have solutions, the CAPTCHA was sent to solver
-//       if (result.solutions && result.solutions.length > 0) {
-//         console.log(`⏳ [J&T EXPRESS] CAPTCHA solution received, waiting for page response...`);
-
-//         // Wait a bit for the solution to be submitted
-//         await new Promise(resolve => setTimeout(resolve, 3000));
-
-//         // Create a new page reference after potential reload
-//         // The old page might be stale/detached
-//         console.log(`🔄 [J&T EXPRESS] Refreshing page reference...`);
-//         const pages = await browser.pages();
-
-//         // Find the active page (last one or the one that's not closed)
-//         const activePage = pages.find(p => !p.isClosed() && p.url().includes('aftership.com')) || pages.at(-1);
-
-//         if (activePage && activePage !== page) {
-//           console.log(`✓ [J&T EXPRESS] Switched to active page`);
-//           page = activePage;
-//         }
-
-//         // Wait for the new page to be ready
-//         await page.waitForFunction('document.readyState === "complete"', { timeout: 10000 })
-//           .catch(() => console.log(`⚠️ [J&T EXPRESS] Page readyState check timeout`));
-//       }
-//     } catch (captchaError: any) {
-//       console.log(`⚠️ [J&T EXPRESS] reCAPTCHA solving error:`, captchaError?.message);
-//     }
-
-//     // Extra wait for content to fully load after CAPTCHA
-//     await new Promise(resolve => setTimeout(resolve, 15000));
-
-//     // Check if page is still open before screenshot
-//     if (page.isClosed()) {
-//       throw new Error('Page was closed before screenshot could be taken');
-//     }
-
-//     // Verify we can still interact with the page
-//     try {
-//       await page.evaluate(() => {
-//         return (globalThis as any).document.readyState;
-//       });
-//       console.log(`✓ [J&T EXPRESS] Page is responsive and ready for screenshot`);
-//     } catch (evalError) {
-//       console.error(`✗ [J&T EXPRESS] Page became unresponsive:`, evalError);
-//       throw new Error('Page is not responsive for screenshot');
-//     }
-
-//     console.log(`📸 [J&T EXPRESS] Taking screenshot...`);
-//     const screenshotBuffer = await page.screenshot({
-//       type: "jpeg",
-//       fullPage: false,
-//       quality: 90
-//     }) as Buffer;
-
-//     console.log(`✅ [J&T EXPRESS] Screenshot completed, size: ${screenshotBuffer.length} bytes`);
-
-//     return screenshotBuffer;
-//   } catch (error) {
-//     console.error(`💥 [J&T EXPRESS] Error in jtexpressScreenshouter:`, error);
-//     throw error;
-//   } finally {
-//     if (page && !page.isClosed()) {
-//       await page.close().catch(e => console.error(`⚠️ [J&T EXPRESS] Error closing page:`, e));
-//     }
-//   }
-// }
-
-async function jtexpressScreenshouterFirefox({ codes }: ScreenshotQuery): Promise<Buffer> {
-  console.log(`📍 [J&T EXPRESS FIREFOX] Starting screenshot for tracking: ${codes}`);
-
-  const browser = await BrowserSingleton.getInstance();
-  let context;
   let page;
-
+  const browser = await BrowserSingleton.getInstance();
+  if (!browser) {
+    throw new Error('Failed to get browser instance');
+  }
   try {
-    // Create context with viewport and user agent
-    context = await browser.newContext({
-      viewport: { width: 1280, height: 1080 },
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0'
-    });
+    console.log(`🆕 [J&T EXPRESS] Creating new page...`);
+    const page = await browser.newPage();
 
-    page = await context.newPage();
+    page.setDefaultTimeout(120000); // 120 seconds
+    console.log(`⏱️ [J&T EXPRESS] Default timeout set to 120 seconds`);
 
-    // Set longer timeouts
-    page.setDefaultNavigationTimeout(120000);
-    page.setDefaultTimeout(120000);
-
-    console.log(`🌐 [J&T EXPRESS FIREFOX] Navigating to aftership.com...`);
+    console.log(`🌐 [J&T EXPRESS] Navigating to aftership.com...`);
     await page.goto(`https://www.aftership.com/track?c=jtexpress-vn&t=${codes}`, {
-      waitUntil: 'networkidle'
+      waitUntil: 'networkidle0'
+    });
+    console.log(`✅ [J&T EXPRESS] Page loaded successfully`);
+
+    console.log(`🔍 [J&T EXPRESS] Attempting to solve reCAPTCHAs...`);
+    const result = await page.solveRecaptchas();
+    console.log(`✅ [J&T EXPRESS] reCAPTCHA result:`, {
+      captchasFound: result.captchas?.length || 0,
+      solutionsCount: result.solutions?.length || 0,
+      solvedCount: result.solved?.length || 0,
+      hasError: !!result.error
     });
 
-    console.log(`⏳ [J&T EXPRESS FIREFOX] Waiting for page to load...`);
-    await page.waitForTimeout(5000);
-
-    // Check for reCAPTCHA
-    const captchaLocator = page.locator('iframe[src*="recaptcha"]').first();
-    const captchaFrame = captchaLocator.contentFrame();
-    const hasCaptcha = captchaFrame ? await captchaFrame.locator('body').count().catch(() => 0) > 0 : false;
-
-    if (hasCaptcha) {
-      console.log(`🔍 [J&T EXPRESS FIREFOX] reCAPTCHA detected`);
-      
-      // Wait for manual solve or 2captcha integration
-      // For now, just wait and hope it auto-solves or times out gracefully
-      await page.waitForTimeout(10000);
-      
-      console.log(`⏳ [J&T EXPRESS FIREFOX] Waiting after CAPTCHA...`);
-      await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => 
-        console.log(`⚠️ [J&T EXPRESS FIREFOX] Network idle timeout`)
-      );
+    if (result.error) {
+      console.log(`⚠️ [J&T EXPRESS] reCAPTCHA solving error:`, result.error);
     }
 
-    // Extra wait for content to fully load
-    await page.waitForTimeout(15000);
+    console.log(`⏳ [J&T EXPRESS] Waiting 15 seconds for content to load...`);
+    await new Promise(resolve => setTimeout(resolve, 15000));
 
-    console.log(`📸 [J&T EXPRESS FIREFOX] Taking screenshot...`);
-    const screenshotBuffer = await page.screenshot({
-      type: 'jpeg',
-      fullPage: false,
-      quality: 90
-    });
+    console.log(`📸 [J&T EXPRESS] Taking screenshot...`);
+    const screenshot = await page.screenshot({ path: 'stealth.png', fullPage: true });
+    console.log(`✅ [J&T EXPRESS] Screenshot captured, size: ${screenshot.length} bytes`);
 
-    console.log(`✅ [J&T EXPRESS FIREFOX] Screenshot completed, size: ${screenshotBuffer.length} bytes`);
+    console.log(`🔒 [J&T EXPRESS] Closing page...`);
+    await page.close();
+    console.log(`✨ [J&T EXPRESS] All done!`);
 
-    return screenshotBuffer;
+    return Buffer.from(screenshot);
   } catch (error) {
-    console.error(`💥 [J&T EXPRESS FIREFOX] Error:`, error);
+    console.error(`💥 [J&T EXPRESS] Error in jtexpressScreenshouter:`, error);
     throw error;
-  } finally {
-    if (page) await page.close().catch(e => console.error(`⚠️ Error closing page:`, e));
-    if (context) await context.close().catch(e => console.error(`⚠️ Error closing context:`, e));
-    if (browser) await browser.close().catch(e => console.error(`⚠️ Error closing browser:`, e));
   }
 }
 
