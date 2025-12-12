@@ -11,7 +11,7 @@ export class PuppeteerBrowserSingleton {
     }
     // Configure plugins
     puppeteer.use(StealthPlugin());
-    const pwEndpoint = `ws://headless-chrome:${process.env.BROWSERLESS_PORT}?token=${process.env.BROWSERLESS_API_TOKEN}`;
+    const pwEndpoint = `ws://headless-chrome:${process.env.BROWSERLESS_PORT}?token=${process.env.BROWSERLESS_API_TOKEN_LOCAL}`;
     this.browserInstance = await puppeteer.connect({ browserWSEndpoint: pwEndpoint });
     this.browserInstance.on('disconnected', () => {
       console.log('🔌 [BROWSER] Browser disconnected');
