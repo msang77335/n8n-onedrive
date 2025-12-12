@@ -1,6 +1,5 @@
 import type { Browser } from 'puppeteer';
 import puppeteer from 'puppeteer-extra';
-import RecaptchaPlugin from 'puppeteer-extra-plugin-recaptcha';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 export class PuppeteerBrowserSingleton {
   private static browserInstance: Browser | null = null;
@@ -12,19 +11,9 @@ export class PuppeteerBrowserSingleton {
     }
     // Configure plugins
     puppeteer.use(StealthPlugin());
-    puppeteer.use(
-      RecaptchaPlugin({
-        provider: {
-          id: '2captcha',
-          token: process.env.CAPTCHA_SOLVER_API_KEY || '',
-        },
-        visualFeedback: true,
-      })
-    );
     console.log('🆕 [BROWSER] Creating new browser instance');
     this.browserInstance = await puppeteer.launch({
       headless: true,
-      // executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
       args: [
         '--no-sandbox',
       ]
