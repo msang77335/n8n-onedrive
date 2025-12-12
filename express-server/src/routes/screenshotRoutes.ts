@@ -61,14 +61,20 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 
     if (isBestExpress(provider)) {
       screenshotBuffer = await isBestExpressScreenshouter({ provider, codes });
-      res.set({
-        'Content-Type': 'image/jpeg',
-        'Content-Length': screenshotBuffer.length.toString(),
-        'Content-Disposition': `inline; filename="screenshot.jpg"`
+    }
+
+    if (!screenshotBuffer) {
+      console.log(`❌ [SCREENSHOT] Unsupported provider: ${provider}`);
+      res.status(400).json({
+        success: false,
+        error: 'Unsupported provider'
       });
-      res.send(screenshotBuffer);
       return;
     }
+
+    const endTime = Date.now();
+    const duration = endTime - startTime;
+    console.log(`✅ [SCREENSHOT] Screenshot completed successfully in ${duration}ms`);
 
     res.set({
       'Content-Type': 'image/jpeg',
