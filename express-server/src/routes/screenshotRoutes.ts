@@ -1,6 +1,6 @@
 import { Request, Response, Router } from 'express';
 import { PlaywrightBrowserSingleton } from '../helpers/PlaywrightBrowserSingleton';
-import { PuppeteerBrowserSingleton } from '../helpers/puppeteerBrowserSingleton';
+import { PuppeteerBrowserSingleton } from '../helpers/PuppeteerBrowserSingleton';
 
 
 function isSPX(providerStr: string) {
