@@ -1,9 +1,8 @@
 import { Browser, BrowserContext } from 'playwright';
 import RecaptchaPlugin from 'puppeteer-extra-plugin-recaptcha';
 const { firefox } = require('playwright-extra')
-const stealth = require('puppeteer-extra-plugin-stealth')()
 
-export class BrowserSingleton {
+export class PlaywrightBrowserSingleton {
   private static browserInstance: Browser | null = null;
   private static browserContext: BrowserContext | null = null;
 

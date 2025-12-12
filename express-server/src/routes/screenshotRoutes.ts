@@ -1,5 +1,7 @@
 import { Request, Response, Router } from 'express';
-import { BrowserSingleton } from '../helpers/BrowserSingleton';
+import { PlaywrightBrowserSingleton } from '../helpers/PlaywrightBrowserSingleton';
+import { PuppeteerBrowserSingleton } from '../helpers/puppeteerBrowserSingleton';
+
 
 function isSPX(providerStr: string) {
   return providerStr.toUpperCase().includes('SPX');
@@ -46,50 +48,15 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     let screenshotBuffer = null;
 
     if (isGiaoHangNhanh(provider)) {
-      screenshotBuffer = await fetch(`http://headless-chrome:${process.env.BROWSERLESS_PORT}/screenshot?token=${process.env.BROWSERLESS_API_TOKEN_LOCAL}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          url: `https://donhang.ghn.vn/?order_code=${codes}`,
-          options: {
-            fullPage: false
-          },
-          viewport: {
-            width: 1280,
-            height: 920
-          },
-          waitForTimeout: 10000
-        })
-      })
+      screenshotBuffer = await screenshoter(`https://donhang.ghn.vn/?order_code=${codes}`);
     }
 
     if (isSPX(provider)) {
-      screenshotBuffer = await fetch(`http://headless-chrome:3000/screenshot?token=${process.env.BROWSERLESS_API_TOKEN_LOCAL}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          url: `https://spx.vn/track?${codes}`,
-          options: {
-            fullPage: false
-          },
-          viewport: {
-            width: 1280,
-            height: 920
-          },
-          waitForTimeout: 10000
-        })
-      })
+      screenshotBuffer = await playwrightScreenshoter(`https://spx.vn/track?${codes}`);
     }
 
     if (isJTExpress(provider)) {
-      const screenshotBuffer = await jtexpressScreenshouter({ provider, codes });
-      res.set({
-        'Content-Type': 'image/jpeg',
-        'Content-Length': screenshotBuffer.length.toString(),
-        'Content-Disposition': `inline; filename="screenshot.jpg"`
-      });
-      res.send(screenshotBuffer);
-      return;
+      screenshotBuffer = await jtexpressScreenshouter({ provider, codes });
     }
 
     if (isBestExpress(provider)) {
@@ -103,17 +70,12 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    if (!screenshotBuffer?.ok) {
-      throw new Error(`Got non-ok response from GHN API:\n` + (await screenshotBuffer?.text()));
-    }
-
-    const imageBuffer = Buffer.from(await screenshotBuffer.arrayBuffer());
     res.set({
-      'Content-Type': 'image/png',
-      'Content-Length': imageBuffer.length.toString(),
-      'Content-Disposition': `inline; filename="screenshot.png"`
+      'Content-Type': 'image/jpeg',
+      'Content-Length': screenshotBuffer?.length.toString(),
+      'Content-Disposition': `inline; filename="screenshot.jpg"`
     });
-    res.send(imageBuffer);
+    res.send(screenshotBuffer);
   } catch (error: any) {
     const endTime = Date.now();
     const duration = endTime - startTime;
@@ -128,17 +90,98 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
+async function screenshoter(url: string): Promise<Buffer> {
+  console.log(`📍 [SCREENSHOT] Starting screenshot for URL: ${url}`);
+  let page;
+  const browser = await PuppeteerBrowserSingleton.getInstance();
+  if (!browser) {
+    throw new Error('Failed to get browser instance');
+  }
+  try {
+    console.log(`🆕 [SCREENSHOT] Creating new page...`);
+    page = await browser.newPage();
+    page.setViewport({ width: 1280, height: 1080 });
+
+    page.setDefaultTimeout(60000); // 60 seconds
+    console.log(`⏱️ [SCREENSHOT] Default timeout set to 60 seconds`);
+
+    console.log(`🌐 [SCREENSHOT] Navigating to ${url}...`);
+    await page.goto(url, {
+      waitUntil: 'networkidle2'
+    });
+    console.log(`✅ [SCREENSHOT] Page loaded successfully`);
+
+    console.log(`⏳ [SCREENSHOT] Waiting 15 seconds for content to load...`);
+    await new Promise(resolve => setTimeout(resolve, 15000));
+
+    console.log(`📸 [SCREENSHOT] Taking screenshot...`);
+    const screenshot = await page.screenshot({ fullPage: false });
+    console.log(`✅ [SCREENSHOT] Screenshot captured, size: ${screenshot.length} bytes`);
+
+    console.log(`✨ [SCREENSHOT] All done!`);
+    return Buffer.from(screenshot);
+  } catch (error) {
+    console.error(`💥 [SCREENSHOT] Error in screenshoter:`, error);
+    throw error;
+  } finally {
+    if (page && !page.isClosed()) {
+      console.log(`🔒 [SCREENSHOT] Closing page in finally block...`);
+      await page.close();
+    }
+  }
+}
+
+async function playwrightScreenshoter(url: string): Promise<Buffer> {
+  console.log(`📍 [SCREENSHOT] Starting screenshot for URL: ${url}`);
+  let page;
+  const browserContext = await PlaywrightBrowserSingleton.getContext();
+  if (!browserContext) {
+    throw new Error('Failed to get browser context');
+  }
+  try {
+    console.log(`🆕 [SCREENSHOT] Creating new page...`);
+    page = await browserContext.newPage();
+
+    page.setDefaultTimeout(60000); // 60 seconds
+    console.log(`⏱️ [SCREENSHOT] Default timeout set to 60 seconds`);
+
+    console.log(`🌐 [SCREENSHOT] Navigating to ${url}...`);
+    await page.goto(url, {
+      waitUntil: 'networkidle'
+    });
+    console.log(`✅ [SCREENSHOT] Page loaded successfully`);
+
+    console.log(`⏳ [SCREENSHOT] Waiting 15 seconds for content to load...`);
+    await new Promise(resolve => setTimeout(resolve, 15000));
+
+    console.log(`📸 [SCREENSHOT] Taking screenshot...`);
+    const screenshot = await page.screenshot({ fullPage: false });
+    console.log(`✅ [SCREENSHOT] Screenshot captured, size: ${screenshot.length} bytes`);
+
+    console.log(`✨ [SCREENSHOT] All done!`);
+    return Buffer.from(screenshot);
+  } catch (error) {
+    console.error(`💥 [SCREENSHOT] Error in screenshoter:`, error);
+    throw error;
+  } finally {
+    if (page && !page.isClosed()) {
+      console.log(`🔒 [SCREENSHOT] Closing page in finally block...`);
+      await page.close();
+    }
+  }
+}
+
 async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffer> {
   console.log(`📍 [J&T EXPRESS] Starting screenshot for tracking: ${codes}`);
 
   let page;
-  const browserContext = await BrowserSingleton.getContext();
+  const browserContext = await PlaywrightBrowserSingleton.getContext();
   if (!browserContext) {
     throw new Error('Failed to get browser context');
   }
   try {
     console.log(`🆕 [J&T EXPRESS] Creating new page...`);
-    
+
     page = await browserContext.newPage();
 
     page.setDefaultTimeout(120000); // 120 seconds
