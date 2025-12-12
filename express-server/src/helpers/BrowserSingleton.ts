@@ -1,10 +1,11 @@
-import type { Browser } from 'puppeteer';
+import { Browser, BrowserContext } from 'playwright';
 import RecaptchaPlugin from 'puppeteer-extra-plugin-recaptcha';
 const { firefox } = require('playwright-extra')
 const stealth = require('puppeteer-extra-plugin-stealth')()
 
 export class BrowserSingleton {
   private static browserInstance: Browser | null = null;
+  private static browserContext: BrowserContext | null = null;
 
   static async getInstance(): Promise<Browser | null> {
     if (this.browserInstance) {
@@ -35,5 +36,24 @@ export class BrowserSingleton {
       });
     }
     return this.browserInstance;
+  }
+
+  static async getContext(): Promise<BrowserContext | null> {
+    if (this.browserContext) {
+      console.log('♻️ [BROWSER CONTEXT] Reusing existing browser context');
+      return this.browserContext;
+    }
+    const browser = await this.getInstance();
+    if (!browser) {
+      console.error('❌ [BROWSER CONTEXT] Cannot create context, browser instance is null');
+      return null;
+    }
+    console.log('🆕 [BROWSER CONTEXT] Creating new browser context');
+    this.browserContext = await browser.newContext({ viewport: { width: 1280, height: 1080 } });
+    this.browserContext.on('close', () => {
+      console.log('🔌 [BROWSER CONTEXT] Browser context closed');
+      this.browserContext = null;
+    });
+    return this.browserContext;
   }
 }

@@ -82,14 +82,6 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     }
 
     if (isJTExpress(provider)) {
-      // screenshotBuffer = await fetch(`https://hwzp3g4p-3000.asse.devtunnels.ms/api/v1/screenshot`, {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({
-      //     provider,
-      //     codes
-      //   })
-      // })
       const screenshotBuffer = await jtexpressScreenshouter({ provider, codes });
       res.set({
         'Content-Type': 'image/jpeg',
@@ -140,20 +132,21 @@ async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffe
   console.log(`📍 [J&T EXPRESS] Starting screenshot for tracking: ${codes}`);
 
   let page;
-  const browser = await BrowserSingleton.getInstance();
-  if (!browser) {
-    throw new Error('Failed to get browser instance');
+  const browserContext = await BrowserSingleton.getContext();
+  if (!browserContext) {
+    throw new Error('Failed to get browser context');
   }
   try {
     console.log(`🆕 [J&T EXPRESS] Creating new page...`);
-    const page = await browser.newPage();
+    
+    page = await browserContext.newPage();
 
     page.setDefaultTimeout(120000); // 120 seconds
     console.log(`⏱️ [J&T EXPRESS] Default timeout set to 120 seconds`);
 
     console.log(`🌐 [J&T EXPRESS] Navigating to aftership.com...`);
     await page.goto(`https://www.aftership.com/track?c=jtexpress-vn&t=${codes}`, {
-      waitUntil: 'networkidle0'
+      waitUntil: 'networkidle'
     });
     console.log(`✅ [J&T EXPRESS] Page loaded successfully`);
 
@@ -174,17 +167,19 @@ async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffe
     await new Promise(resolve => setTimeout(resolve, 15000));
 
     console.log(`📸 [J&T EXPRESS] Taking screenshot...`);
-    const screenshot = await page.screenshot({ path: 'stealth.png', fullPage: true });
+    const screenshot = await page.screenshot({ fullPage: false });
     console.log(`✅ [J&T EXPRESS] Screenshot captured, size: ${screenshot.length} bytes`);
 
-    console.log(`🔒 [J&T EXPRESS] Closing page...`);
-    await page.close();
     console.log(`✨ [J&T EXPRESS] All done!`);
-
     return Buffer.from(screenshot);
   } catch (error) {
     console.error(`💥 [J&T EXPRESS] Error in jtexpressScreenshouter:`, error);
     throw error;
+  } finally {
+    if (page && !page.isClosed()) {
+      console.log(`🔒 [J&T EXPRESS] Closing page in finally block...`);
+      await page.close();
+    }
   }
 }
 
