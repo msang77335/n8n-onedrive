@@ -4,7 +4,7 @@ WORKDIR /app
 
 COPY package*.json ./
 RUN npm install && \
-  npx playwright install-deps    
+  npx playwright install --with-deps firefox
 
 COPY . .
 

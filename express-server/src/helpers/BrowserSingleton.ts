@@ -1,6 +1,6 @@
 import type { Browser } from 'puppeteer';
 import RecaptchaPlugin from 'puppeteer-extra-plugin-recaptcha';
-const { chromium } = require('playwright-extra')
+const { firefox } = require('playwright-extra')
 const stealth = require('puppeteer-extra-plugin-stealth')()
 
 export class BrowserSingleton {
@@ -12,8 +12,7 @@ export class BrowserSingleton {
       return this.browserInstance;
     }
     // Configure plugins
-    chromium.use(stealth);
-    chromium.use(
+    firefox.use(
       RecaptchaPlugin({
         provider: {
           id: '2captcha',
@@ -23,7 +22,7 @@ export class BrowserSingleton {
       })
     );
     console.log('🆕 [BROWSER] Creating new browser instance');
-    this.browserInstance = await chromium.launch({
+    this.browserInstance = await firefox.launch({
       headless: true,
       args: [
         '--no-sandbox',
