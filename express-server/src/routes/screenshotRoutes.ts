@@ -212,7 +212,7 @@ async function bestExpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buf
     // Create a new page
     console.log(`🆕 [BEST EXPRESS] Creating new page...`);
     page = await browser.newPage();
-    
+
     page.setDefaultTimeout(60000); // 60 seconds
     await page.setViewport({ width: 1280, height: 900 });
 
@@ -220,6 +220,12 @@ async function bestExpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buf
     await page.goto(`https://www.trackingmore.com/track?number=${codes}&express=best-vn`, {
       waitUntil: 'domcontentloaded',
     });
+
+    // chờ popup xuất hiện
+    await page.waitForSelector('button:has-text("Consent")', { timeout: 10000 });
+
+    // click đồng ý
+    await page.click('button:has-text("Consent")');
 
     // ⏳ Cho CF chạy JS challenge
     await new Promise(resolve => setTimeout(resolve, 25000));
