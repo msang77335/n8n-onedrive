@@ -18,6 +18,8 @@ export class PuppeteerBrowserSingleton {
         '--no-sandbox',
         '--profile-directory=Default',
         '--disable-blink-features=AutomationControlled',
+        // 🔥 PROXY
+        '--proxy-server=http://64.64.127.59:6012',
       ]
     });
     if (this.browserInstance) {

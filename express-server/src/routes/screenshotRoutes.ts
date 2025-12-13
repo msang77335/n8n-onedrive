@@ -213,6 +213,11 @@ async function bestExpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buf
     console.log(`🆕 [BEST EXPRESS] Creating new page...`);
     page = await browser.newPage();
 
+    await page.authenticate({
+      username: 'jdlxhaek',
+      password: 'rmkr551esb7x',
+    });
+
     page.setDefaultTimeout(60000); // 60 seconds
     await page.setViewport({ width: 1280, height: 900 });
 
@@ -246,7 +251,6 @@ async function bestExpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buf
     }
   }
 }
-
 
 async function isBestExpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffer> {
   console.log(`📍 [BEST EXPRESS] Starting screenshot for tracking: ${codes}`);
