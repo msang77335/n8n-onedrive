@@ -63,4 +63,4 @@ ENV DISPLAY=:99
 # =========================
 # 10. Start app
 # =========================
-CMD Xvfb :99 -screen 0 1280x720x24 & npm start
+CMD ["sh", "-c", "Xvfb :99 -screen 0 1280x720x24 & npm start"]
