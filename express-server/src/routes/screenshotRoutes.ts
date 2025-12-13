@@ -1,7 +1,9 @@
+import { Solver } from '@2captcha/captcha-solver';
 import { Request, Response, Router } from 'express';
 import { PlaywrightBrowserSingleton } from '../helpers/PlaywrightBrowserSingleton';
+import { PuppeteerBrowserSingleton } from '../helpers/PuppeteerBrowserSingleton';
 
-
+const solver = new Solver(process.env.CAPTCHA_SOLVER_API_KEY || '');
 function isSPX(providerStr: string) {
   return providerStr.toUpperCase().includes('SPX');
 }
@@ -16,6 +18,11 @@ function isJTExpress(providerStr: string) {
 
 function isBestExpress(providerStr: string) {
   return providerStr.toUpperCase().includes('BEST EXPRESS');
+}
+
+function isViettelPost(providerStr: string) {
+  const upperStr = providerStr.toUpperCase();
+  return upperStr.includes('VIETTEL POST') || upperStr.includes('VTP');
 }
 
 const router = Router();
@@ -59,7 +66,11 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     }
 
     if (isBestExpress(provider)) {
-      screenshotBuffer = await isBestExpressScreenshouter({ provider, codes });
+      screenshotBuffer = await bestExpressScreenshouter({ codes });
+    }
+
+    if (isViettelPost(provider)) {
+      screenshotBuffer = await screenshoter(`https://viettelpost.vn/viettelpost-iframe/tra-cuu-hanh-trinh-don-hang-v3-recaptcha`);
     }
 
     if (!screenshotBuffer) {
@@ -189,6 +200,47 @@ async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffe
     }
   }
 }
+
+async function bestExpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffer> {
+  console.log(`📍 [BEST EXPRESS] Starting screenshot for tracking: ${codes}`);
+  let page;
+  const browser = await PuppeteerBrowserSingleton.getInstance();
+  if (!browser) {
+    throw new Error('Failed to get browser instance');
+  }
+  try {
+    // Create a new page
+    console.log(`🆕 [BEST EXPRESS] Creating new page...`);
+    page = await browser.newPage();
+    
+    page.setDefaultTimeout(60000); // 60 seconds
+    await page.setViewport({ width: 1280, height: 900 });
+
+    console.log(`🌐 [BEST EXPRESS] Navigating to tracking page...`);
+    await page.goto(`https://www.trackingmore.com/track?number=${codes}&express=best-vn`, {
+      waitUntil: 'domcontentloaded',
+    });
+
+    // ⏳ Cho CF chạy JS challenge
+    await new Promise(resolve => setTimeout(resolve, 25000));
+
+    const screenshot = await page.screenshot({ fullPage: false });
+    console.log(`✅ [BEST EXPRESS] Screenshot captured, size: ${screenshot.length} bytes`);
+
+    await page.close();
+    console.log(`✨ [BEST EXPRESS] All done!`);
+    return Buffer.from(screenshot);
+  } catch (error) {
+    console.error(`💥 [BEST EXPRESS] Error in bestExpressScreenshouter:`, error);
+    throw error;
+  } finally {
+    if (page && !page.isClosed()) {
+      console.log(`🔒 [BEST EXPRESS] Closing page in finally block...`);
+      await page.close();
+    }
+  }
+}
+
 
 async function isBestExpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffer> {
   console.log(`📍 [BEST EXPRESS] Starting screenshot for tracking: ${codes}`);

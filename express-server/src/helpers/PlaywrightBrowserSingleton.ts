@@ -23,7 +23,7 @@ export class PlaywrightBrowserSingleton {
     );
     console.log('🆕 [BROWSER] Creating new browser instance');
     this.browserInstance = await firefox.launch({
-      headless: true,
+      headless: false,
       args: [
         '--no-sandbox',
       ]
