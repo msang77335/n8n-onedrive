@@ -46,11 +46,21 @@ RUN mkdir -p /app/chrome-profile
 COPY . .
 
 # =========================
-# 7. Xvfb display
+# 7. Build app (optional)
+# =========================
+RUN npm run build || echo "No build script found, skipping build..."
+
+# =========================
+# 8. Expose port
+# =========================
+EXPOSE 3000
+
+# =========================
+# 9. Xvfb display
 # =========================
 ENV DISPLAY=:99
 
 # =========================
-# 8. Entrypoint (start Xvfb)
+# 10. Start app
 # =========================
-CMD Xvfb :99 -screen 0 1280x720x24 & npm run start
+CMD Xvfb :99 -screen 0 1280x720x24 & npm start
