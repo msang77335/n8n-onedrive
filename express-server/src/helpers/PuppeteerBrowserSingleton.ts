@@ -1,5 +1,6 @@
 import { Browser } from 'puppeteer';
 import puppeteer from 'puppeteer-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth'
 
 export class PuppeteerBrowserSingleton {
   private static browserInstance: Browser | null = null;
@@ -9,6 +10,8 @@ export class PuppeteerBrowserSingleton {
       console.log('♻️ [BROWSER] Reusing existing browser instance');
       return this.browserInstance;
     }
+    // Configure plugins
+    puppeteer.use(StealthPlugin());
     console.log('🆕 [BROWSER] Creating new browser instance');
     this.browserInstance = await puppeteer.launch({
       headless: false,
