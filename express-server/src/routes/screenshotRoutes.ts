@@ -226,12 +226,6 @@ async function bestExpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buf
       waitUntil: 'domcontentloaded',
     });
 
-    // chờ popup xuất hiện
-    await page.waitForSelector('button:has-text("Consent")', { timeout: 10000 });
-
-    // click đồng ý
-    await page.click('button:has-text("Consent")');
-
     // ⏳ Cho CF chạy JS challenge
     await new Promise(resolve => setTimeout(resolve, 25000));
 
