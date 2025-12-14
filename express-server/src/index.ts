@@ -5,6 +5,7 @@ import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import morgan from 'morgan';
 
+import path from 'node:path';
 import { errorHandler } from './middleware/errorHandler';
 import { notFoundHandler } from './middleware/notFoundHandler';
 import apiRoutes from './routes';
@@ -52,6 +53,9 @@ app.get('/health', (req: Request, res: Response): void => {
     uptime: process.uptime(),
   });
 });
+
+// Serve static files from the "public" directory
+app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // API routes
 app.use(process.env.API_PREFIX || '/api/v1', apiRoutes);

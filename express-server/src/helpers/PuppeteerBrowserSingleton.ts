@@ -22,7 +22,7 @@ export class PuppeteerBrowserSingleton {
         '--profile-directory=Default',
         '--disable-blink-features=AutomationControlled',
         // 🔥 PROXY
-        '--proxy-server=http://64.64.127.59:6012',
+        //'--proxy-server=http://64.64.127.59:6012',
       ]
     });
     if (this.browserInstance) {

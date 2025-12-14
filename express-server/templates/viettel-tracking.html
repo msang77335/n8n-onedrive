@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thông tin vận đơn</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: "SF UI Text Regular", -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 80%;
+      margin: 30px auto;
+    }
+
+    .header {
+      font-size: 24px;
+      letter-spacing: 0.5px;
+      margin-bottom: 24px;
+      font-weight: 500;
+      padding: 0 24px;
+    }
+
+    .info-section {
+      background: #f5f5f5;
+      padding: 20px 0;
+      border-radius: 5px;
+      box-shadow: 1px 1px 6px 1px #888;
+    }
+
+    .info-row-container {
+      display: flex;
+    }
+
+    .info-row {
+      font-size: 14px;
+      line-height: 1.5;
+      width: 33.33%;
+      padding: 0 24px;
+      position: relative;
+    }
+
+    .info-row:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      top: 10px;
+      right: 0;
+      width: 1px;
+      height: calc(100% - 20px);
+      background: #000;
+    }
+
+    .info-block {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding: 8px 0;
+    }
+
+    .info-label {
+      color: #000;
+      font-weight: 400;
+      white-space: nowrap;
+      margin-right: 10px;
+    }
+
+    .info-value {
+      color: #000;
+    }
+
+    .info-value.link {
+      color: #1a73e8;
+      cursor: pointer;
+    }
+
+    .timeline-section {
+      background: #f5f5f5;
+      padding: 24px 20px;
+      margin-top: 20px;
+      border-radius: 5px;
+      box-shadow: 1px 1px 6px 1px #888;
+    }
+
+    .timeline-item {
+      padding-left: 32px;
+      margin-bottom: 24px;
+      position: relative;
+    }
+
+    .timeline-item::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 4px;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #ddd;
+      border: 2px solid #ddd;
+      box-shadow: 0 0 0 1px #ddd;
+    }
+
+    .timeline-item::after {
+      content: '';
+      position: absolute;
+      left: 4px;
+      top: 14.5px;
+      width: 1px;
+      height: calc(100% + 20px);
+      background: #ddd;
+    }
+
+    .timeline-item.active::before {
+      background: #ee0033;
+      box-shadow: 0 0 0 1px #ee0033;
+      border: 2px solid #fff;
+    }
+
+    .timeline-status {
+      font-size: 14px;
+      margin-bottom: 4px;
+      color: #ee0033;
+    }
+
+    .timeline-time {
+      font-size: 14px;
+      color: #000;
+      line-height: 1.5;
+    }
+
+    .timeline-link {
+      color: #0066ff;
+      font-size: 12px;
+      margin-top: 4px;
+      display: block;
+      cursor: pointer;
+    }
+
+    .timeline-link-red {
+      color: #ee0033;
+      font-size: 12px;
+      margin-top: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .icon-location {
+      width: 20px;
+      height: 20px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="info-section">
+      <div class="header">
+        THÔNG TIN VẬN ĐƠN
+      </div>
+      <div class="info-row-container">
+        <div class="info-row">
+          <div class="info-block">
+            <span class="info-label">Mã phiếu gửi:</span>
+            <span class="info-value">SHOPEEVTP105591977</span>
+          </div>
+          <div class="info-block">
+            <span class="info-label">Chi tiết đơn hàng:</span>
+            <span class="info-value link">Xem chi tiết</span>
+          </div>
+          <div class="info-block">
+            <span class="info-label">Người gửi:</span>
+            <span class="info-value">Giấy Hàn Quốc - T.Thái Bình - H.Đông Hưng</span>
+          </div>
+          <div class="info-block">
+            <span class="info-label">Người nhận:</span>
+            <span class="info-value">Nguyễn Ngân< - Ninh Bình - HUYỆN GIA VIỄN</span>
+          </div>
+        </div>
+
+        <div class="info-row">
+          <div class="info-block">
+            <span class="info-label">Khối lượng(Gram):</span>
+            <span class="info-value">500</span>
+          </div>
+          <div class="info-block">
+            <span class="info-label">Dịch vụ:</span>
+            <span class="info-value">SAN TMDT BAY</span>
+          </div>
+          <div class="info-block">
+            <span class="info-label">Trạng thái:</span>
+            <span class="info-value">Giao thành công</span>
+          </div>
+        </div>
+
+        <div class="info-row">
+          <div class="info-block">
+            <span class="info-label">Ngày tạo:</span>
+            <span class="info-value">10/11/2024</span>
+          </div>
+          <div class="info-block">
+            <span class="info-label">Ngày nhận hàng:</span>
+            <span class="info-value">11/11/2024</span>
+          </div>
+          <div class="info-block">
+            <span class="info-label">Ngày giao hàng dự kiến: <span style="color: #1a73e8;">ⓘ</span></span>
+            <span class="info-value">13/11/2024</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="timeline-section">
+      <div class="timeline-item active">
+        <div class="timeline-status success">Giao thành công</div>
+        <div class="timeline-time">12/11/2024 14:33:15: Người nhận: Nguyễn Ngân</div>
+      </div>
+
+      <div class="timeline-item">
+        <div class="timeline-status">Tồn - Giao không thành công</div>
+        <div class="timeline-time">12/11/2024 10:42:30: Không liên lạc được khách hàng nhận</div>
+        <a class="timeline-link">Xem chi tiết đơn hàng</a>
+      </div>
+
+      <div class="timeline-item">
+        <div class="timeline-status">Giao hàng</div>
+        <div class="timeline-time">12/11/2024 07:26:39: Nhân viên giao P***** - 8***** - Bưu cục Gia Viễn - NBH -
+          84985844066</div>
+        <a class="timeline-link-red">Thông tin bưu cục
+          <img src="/location-v2.png" class="icon-location" alt="" />
+        </a>
+      </div>
+
+      <div class="timeline-item">
+        <div class="timeline-status">Vận chuyển</div>
+        <div class="timeline-time">12/11/2024 07:04:12: Nhận tại Bưu cục Gia Viễn - NBH - H.Gia Viễn - T.Ninh Bình -
+          84985844066</div>
+        <a class="timeline-link">Xem chi tiết đơn hàng</a>
+      </div>
+
+      <div class="timeline-item">
+        <div class="timeline-status">Đã nhận hàng</div>
+        <div class="timeline-time">11/11/2024 15:48:27: Nhận thành công - Nhân viên T***** - 8*****
+        </div>
+        <a class="timeline-link">Xem chi tiết đơn hàng</a>
+        <a class="timeline-link-red">Thông tin bưu cục
+          <img src="/location-v2.png" class="icon-location" alt="" />
+        </a>
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>
