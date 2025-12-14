@@ -2,8 +2,6 @@ import { Solver } from '@2captcha/captcha-solver';
 import { Request, Response, Router } from 'express';
 import { PlaywrightBrowserSingleton } from '../helpers/PlaywrightBrowserSingleton';
 
-const solver = new Solver('43881b2e08166a992dd875d1516716d7');
-
 function isSPX(providerStr: string) {
   return providerStr.toUpperCase().includes('SPX');
 }
@@ -71,9 +69,17 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 
     if (isViettelPost(provider)) {
       const resp = await viettelPostScreenshoter(codes);
+      if (resp?.data?.error === true) { 
+        console.log(`❌ [SCREENSHOT] Viettel Post API returned error for codes: ${codes}`);
+        res.status(500).json({
+          success: false,
+          error: 'Viettel Post API returned an error'
+        });
+        return;
+      }
       res.status(200).json({
         success: true,
-        data: resp
+        data: resp?.data || {}
       });
       return;
     }
@@ -152,6 +158,7 @@ async function screenshoter(url: string, provider?: string, code?: string): Prom
 }
 
 async function viettelPostScreenshoter(code?: string): Promise<any> {
+  const solver = new Solver(process.env.CAPTCHA_SOLVER_API_KEY || '');
   try {
     console.log(`📍 [VIETTEL POST] Solve captcha for code: ${code}`);
     // 1. Solve captcha
