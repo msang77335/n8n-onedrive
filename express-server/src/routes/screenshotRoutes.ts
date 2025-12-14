@@ -69,7 +69,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 
     if (isViettelPost(provider)) {
       const resp = await viettelPostScreenshoter(codes);
-      if (resp?.data?.error === true) { 
+      if (String(resp?.data?.error) === 'true') { 
         console.log(`❌ [SCREENSHOT] Viettel Post API returned error for codes: ${codes}`);
         res.status(500).json({
           success: false,
