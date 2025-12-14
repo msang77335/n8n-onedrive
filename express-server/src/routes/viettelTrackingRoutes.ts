@@ -205,6 +205,8 @@ router.post('/screenshot', async (req: Request, res: Response): Promise<void> =>
     page = await browserContext.newPage();
     await page.setContent(html, { waitUntil: 'networkidle' });
 
+    await new Promise(resolve => setTimeout(resolve, 10000));
+
     // Take screenshot
     const screenshot = await page.screenshot({
       type: 'png',

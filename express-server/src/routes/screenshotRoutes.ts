@@ -69,6 +69,8 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 
     if (isViettelPost(provider)) {
       const resp = await viettelPostScreenshoter(codes);
+      console.log(`📦 [VIETTEL POST] Full API response:`, JSON.stringify(resp, null, 2));
+      
       if (String(resp?.data?.error) === 'true') { 
         console.log(`❌ [SCREENSHOT] Viettel Post API returned error for codes: ${codes}`);
         res.status(500).json({
@@ -77,11 +79,27 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
         });
         return;
       }
-      res.status(200).json({
-        success: true,
-        data: resp?.data || {}
+      
+      // Extract the first order data from nested structure
+      const orderData = resp?.data?.[0] || resp?.data || {};
+      console.log(`📦 [VIETTEL POST] Extracted order data:`, JSON.stringify(orderData, null, 2));
+      
+      // Call screenshot endpoint with the data
+      console.log(`📸 [VIETTEL POST] Calling screenshot endpoint...`);
+      const screenshotResponse = await fetch(`http://localhost:${process.env.PORT || 3000}/api/v1/viettel-tracking/screenshot`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(orderData)
       });
-      return;
+      
+      if (!screenshotResponse.ok) {
+        throw new Error(`Screenshot endpoint returned status ${screenshotResponse.status}`);
+      }
+      
+      screenshotBuffer = Buffer.from(await screenshotResponse.arrayBuffer());
+      console.log(`✅ [VIETTEL POST] Screenshot received, size: ${screenshotBuffer.length} bytes`);
     }
 
     if (!screenshotBuffer) {
