@@ -1,6 +1,8 @@
 import { Solver } from '@2captcha/captcha-solver';
 import { Request, Response, Router } from 'express';
 import { PlaywrightBrowserSingleton } from '../helpers/PlaywrightBrowserSingleton';
+import path from 'node:path';
+import fs from 'node:fs';
 
 function isSPX(providerStr: string) {
   return providerStr.toUpperCase().includes('SPX');
@@ -84,22 +86,9 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       const orderData = resp?.data?.[0] || resp?.data || {};
       console.log(`📦 [VIETTEL POST] Extracted order data:`, JSON.stringify(orderData, null, 2));
       
-      // Call screenshot endpoint with the data
-      console.log(`📸 [VIETTEL POST] Calling screenshot endpoint...`);
-      const screenshotResponse = await fetch(`http://localhost:${process.env.PORT || 3000}/api/v1/viettel-tracking/screenshot`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(orderData)
-      });
-      
-      if (!screenshotResponse.ok) {
-        throw new Error(`Screenshot endpoint returned status ${screenshotResponse.status}`);
-      }
-      
-      screenshotBuffer = Buffer.from(await screenshotResponse.arrayBuffer());
-      console.log(`✅ [VIETTEL POST] Screenshot received, size: ${screenshotBuffer.length} bytes`);
+      // Call direct function instead of HTTP request
+      screenshotBuffer = await viettelPostRenderScreenshot(orderData);
+      console.log(`✅ [VIETTEL POST] Screenshot rendered, size: ${screenshotBuffer.length} bytes`);
     }
 
     if (!screenshotBuffer) {
@@ -338,6 +327,123 @@ async function bestExpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buf
     console.error(`💥 [BEST EXPRESS] Error in isBestExpressScreenshouter:`, error);
     throw error;
   }
+}
+
+async function viettelPostRenderScreenshot(data: any): Promise<Buffer> {
+  let page;
+    try {
+      // Read HTML template
+      const htmlPath = path.join(__dirname, '../../templates/viettel-tracking.html');
+      let html = fs.readFileSync(htmlPath, 'utf-8');
+  
+      // Read location icon and convert to base64
+      const iconPath = path.join(__dirname, '../../public/location-v2.png');
+      const iconBuffer = fs.readFileSync(iconPath);
+      const iconBase64 = `data:image/png;base64,${iconBuffer.toString('base64')}`;
+  
+      // Extract and format data
+      const maVanDon = data.MAVANDON || 'N/A';
+      const trongLuong = data.TRONG_LUONG || 0;
+      const dichVu = data.DICH_VU || 'N/A';
+      const senderInfo = `${data.SENDER_FULLNAME || 'N/A'} - ${data.SENDER_PROVINCE || ''} - ${data.SENDER_DISTRICT || ''}`.trim();
+      const receiverInfo = `${data.RECEIVER_FULLNAME || 'N/A'} - ${data.RECEIVER_PROVINCE || ''} - ${data.RECEIVER_DISTRICT || ''}`.trim();
+      const trangThai = data.TRANGTHAI || 'N/A';
+      const ngayTao = data.NGAY_GUI ? data.NGAY_GUI.split(' ')[0] : 'N/A';
+      const ngayNhanHang = data.NGAY_GUI ? data.NGAY_GUI.split(' ')[0] : 'N/A';
+      const ngayGiaoDuKien = data.EXPECTED_TIME || 'N/A';
+  
+      // Build timeline from TRACKING_ORDERS
+      let timelineHtml = '';
+      if (data.TRACKING_ORDERS && Array.isArray(data.TRACKING_ORDERS)) {
+        data.TRACKING_ORDERS.forEach((order: any, index: number) => {
+          const statusName = order.STATUS_NAME || 'N/A';
+  
+          if (order.TRACKINGS && Array.isArray(order.TRACKINGS)) {
+            const firstTracking = order.TRACKINGS[0];
+            const hasMoreItems = order.TRACKINGS.length > 1;
+  
+            if (firstTracking) {
+              const isActive = index === 0 ? ' active' : '';
+              const thoiGian = firstTracking.THOI_GIAN || 'N/A';
+              const ghiChu = firstTracking.GHI_CHU || '';
+              const noiDung = firstTracking.NOI_DUNG || '';
+  
+              let timelineContent = `${thoiGian}: `;
+  
+              if (firstTracking.RECEIVER_FULLNAME) {
+                timelineContent += `Người nhận: ${firstTracking.RECEIVER_FULLNAME}`;
+              } else if (firstTracking.NHAN_VIEN_PHAT_DETAIL) {
+                const nvName = firstTracking.NHAN_VIEN_PHAT_DETAIL.NAME || '';
+                const nvPhone = firstTracking.NHAN_VIEN_PHAT_DETAIL.PHONE || '';
+                timelineContent += `Nhân viên ${ghiChu.toLowerCase()} ${nvName} - ${nvPhone}`;
+  
+                const tenBuuCuc = firstTracking.TEN_BUUCUC_DI || firstTracking.TEN_BUUCUC_DEN || '';
+                const sdtBuuCuc = firstTracking.SDT_BUU_CUC_DI || firstTracking.SDT_BUU_CUC_DEN || '';
+                if (tenBuuCuc) timelineContent += ` - ${tenBuuCuc}`;
+                if (sdtBuuCuc) timelineContent += ` - ${sdtBuuCuc}`;
+              } else if (noiDung) {
+                timelineContent += noiDung;
+                const tenBuuCuc = firstTracking.TEN_BUUCUC_DI || firstTracking.TEN_BUUCUC_DEN || '';
+                if (tenBuuCuc && !noiDung.includes(tenBuuCuc)) {
+                  timelineContent += ` - ${tenBuuCuc}`;
+                }
+              } else {
+                timelineContent += ghiChu;
+              }
+  
+              const tenBuuCuc = firstTracking.TEN_BUUCUC_DI || firstTracking.TEN_BUUCUC_DEN || '';
+              const hasLocationInfo = !firstTracking.RECEIVER_FULLNAME && tenBuuCuc && tenBuuCuc.includes('Bưu cục');
+  
+              timelineHtml += `
+        <div class="timeline-item${isActive}">
+          <div class="timeline-status">${statusName}</div>
+          <div class="timeline-time">${timelineContent}</div>
+          ${hasMoreItems ? `<a class="timeline-link">Xem chi tiết đơn hàng</a>` : ''}
+          ${hasLocationInfo ? `<a class="timeline-link-red">Thông tin bưu cục
+            <img src="${iconBase64}" class="icon-location" alt="" />
+          </a>` : ''}
+        </div>`;
+            }
+          }
+        });
+      }
+  
+      // Replace all placeholders
+      html = html.replace('{{MAVANDON}}', maVanDon);
+      html = html.replace('{{TRONG_LUONG}}', trongLuong.toString());
+      html = html.replace('{{DICH_VU}}', dichVu);
+      html = html.replace('{{SENDER_INFO}}', senderInfo);
+      html = html.replace('{{RECEIVER_INFO}}', receiverInfo);
+      html = html.replace('{{TRANGTHAI}}', trangThai);
+      html = html.replace('{{NGAY_TAO}}', ngayTao);
+      html = html.replace('{{NGAY_NHAN_HANG}}', ngayNhanHang);
+      html = html.replace('{{NGAY_GIAO_DU_KIEN}}', ngayGiaoDuKien);
+      html = html.replace('{{TIMELINE_ITEMS}}', timelineHtml);
+  
+      const browserContext = await PlaywrightBrowserSingleton.getContext();
+      if (!browserContext) {
+        throw new Error('Failed to get browser context');
+      }
+  
+      page = await browserContext.newPage();
+      await page.setContent(html, { waitUntil: 'networkidle' });
+  
+      await new Promise(resolve => setTimeout(resolve, 10000));
+  
+      // Take screenshot
+      const screenshot = await page.screenshot({
+        type: 'png',
+        fullPage: true
+      });
+  
+      // Return image
+      return Buffer.from(screenshot);
+    } catch (error) {
+      console.error('Error generating screenshot:', error);
+      throw error;
+    } finally {
+      if (page) await page.close();
+    }
 }
 
 export default router;
