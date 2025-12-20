@@ -72,8 +72,8 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     if (isViettelPost(provider)) {
       const resp = await viettelPostScreenshoter(codes);
       console.log(`📦 [VIETTEL POST] Full API response:`, JSON.stringify(resp, null, 2));
-      
-      if (String(resp?.data?.error) === 'true') { 
+
+      if (String(resp?.data?.error) === 'true') {
         console.log(`❌ [SCREENSHOT] Viettel Post API returned error for codes: ${codes}`);
         res.status(500).json({
           success: false,
@@ -81,11 +81,11 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
         });
         return;
       }
-      
+
       // Extract the first order data from nested structure
       const orderData = resp?.data?.[0] || resp?.data || {};
       console.log(`📦 [VIETTEL POST] Extracted order data:`, JSON.stringify(orderData, null, 2));
-      
+
       // Call direct function instead of HTTP request
       screenshotBuffer = await viettelPostRenderScreenshot(orderData);
       console.log(`✅ [VIETTEL POST] Screenshot rendered, size: ${screenshotBuffer.length} bytes`);
@@ -131,37 +131,86 @@ async function screenshoter(url: string, provider?: string, code?: string): Prom
   if (!browserContext) {
     throw new Error('Failed to get browser context');
   }
-  try {
-    console.log(`🆕 [SCREENSHOT] Creating new page...`);
-    page = await browserContext.newPage();
 
-    page.setDefaultTimeout(60000); // 60 seconds
-    console.log(`⏱️ [SCREENSHOT] Default timeout set to 60 seconds`);
+  const maxRetries = 3;
+  let lastError;
 
-    console.log(`🌐 [SCREENSHOT] Navigating to ${url}...`);
-    await page.goto(url, {
-      waitUntil: 'networkidle'
-    });
-    console.log(`✅ [SCREENSHOT] Page loaded successfully`);
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`🆕 [SCREENSHOT] Creating new page (attempt ${attempt}/${maxRetries})...`);
+      page = await browserContext.newPage();
 
-    console.log(`⏳ [SCREENSHOT] Waiting 15 seconds for content to load...`);
-    await new Promise(resolve => setTimeout(resolve, 15000));
+      page.setDefaultTimeout(90000); // 90 seconds
+      console.log(`⏱️ [SCREENSHOT] Default timeout set to 90 seconds`);
 
-    console.log(`📸 [SCREENSHOT] Taking screenshot...`);
-    const screenshot = await page.screenshot({ fullPage: false });
-    console.log(`✅ [SCREENSHOT] Screenshot captured, size: ${screenshot.length} bytes`);
+      console.log(`🌐 [SCREENSHOT] Navigating to ${url}...`);
 
-    console.log(`✨ [SCREENSHOT] All done!`);
-    return Buffer.from(screenshot);
-  } catch (error) {
-    console.error(`💥 [SCREENSHOT] Error in screenshoter:`, error);
-    throw error;
-  } finally {
-    if (page && !page.isClosed()) {
-      console.log(`🔒 [SCREENSHOT] Closing page in finally block...`);
-      await page.close();
+      // Try with 'domcontentloaded' first (faster, more reliable than 'networkidle')
+      try {
+        await page.goto(url, {
+          waitUntil: 'domcontentloaded',
+          timeout: 60000
+        });
+      } catch (gotoError: any) {
+        console.log(`⚠️ [SCREENSHOT] Navigation issue: ${gotoError.message}, retrying with 'load'...`);
+
+        // Retry with 'load' if domcontentloaded fails
+        await page.goto(url, {
+          waitUntil: 'load',
+          timeout: 60000
+        });
+      }
+
+      console.log(`✅ [SCREENSHOT] Page loaded successfully`);
+
+      console.log(`⏳ [SCREENSHOT] Waiting 15 seconds for content to load...`);
+      await new Promise(resolve => setTimeout(resolve, 15000));
+
+      // Check if tracking data is present
+      console.log(`🔍 [SCREENSHOT] Checking for tracking data...`);
+      const hasTrackingData = await page.evaluate(() => {
+        const spxHasData = (globalThis as any).document.querySelector('.quick-tracking-search-result');
+
+        const ghnHasData = (globalThis as any).document.querySelector('.order-history-container')?.textContent?.trim().length > 0;
+      
+        return spxHasData || ghnHasData;
+      });
+
+      if (hasTrackingData) {
+        console.log(`✅ [SCREENSHOT] Tracking data found, taking screenshot...`);
+        const screenshot = await page.screenshot({ fullPage: false });
+        console.log(`✅ [SCREENSHOT] Screenshot captured, size: ${screenshot.length} bytes`);
+        console.log(`✨ [SCREENSHOT] All done!`);
+        return Buffer.from(screenshot);
+      } else {
+        console.log(`⚠️ [SCREENSHOT] No tracking data found (attempt ${attempt}/${maxRetries})`);
+
+        if (attempt < maxRetries) {
+          throw new Error('No tracking data found, will retry');
+        } else {
+          throw new Error('No tracking data found after all retries');
+        }
+      }
+
+    } catch (error: any) {
+      lastError = error;
+      console.error(`💥 [SCREENSHOT] Attempt ${attempt}/${maxRetries} failed:`, error.message);
+
+      if (page && !page.isClosed()) {
+        await page.close().catch(e => console.log('Error closing page:', e));
+        page = undefined;
+      }
+
+      if (attempt < maxRetries) {
+        const delay = attempt * 2000; // Exponential backoff
+        console.log(`⏳ [SCREENSHOT] Waiting ${delay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
     }
   }
+
+  console.error(`💥 [SCREENSHOT] All ${maxRetries} attempts failed`);
+  throw lastError;
 }
 
 async function viettelPostScreenshoter(code?: string): Promise<any> {
@@ -231,42 +280,86 @@ async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffe
   if (!browserContext) {
     throw new Error('Failed to get browser context');
   }
+
+  const maxRetries = 3;
+  let lastError;
+
   try {
     console.log(`🆕 [J&T EXPRESS] Creating new page...`);
-
     page = await browserContext.newPage();
-
     page.setDefaultTimeout(120000); // 120 seconds
     console.log(`⏱️ [J&T EXPRESS] Default timeout set to 120 seconds`);
 
-    console.log(`🌐 [J&T EXPRESS] Navigating to aftership.com...`);
-    await page.goto(`https://www.aftership.com/track?c=jtexpress-vn&t=${codes}`, {
-      waitUntil: 'networkidle'
-    });
-    console.log(`✅ [J&T EXPRESS] Page loaded successfully`);
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`🌐 [J&T EXPRESS] Navigating to aftership.com (attempt ${attempt}/${maxRetries})...`);
+        await page.goto(`https://www.aftership.com/track?c=jtexpress-vn&t=${codes}`, {
+          waitUntil: 'networkidle'
+        });
+        console.log(`✅ [J&T EXPRESS] Page loaded successfully`);
 
-    console.log(`🔍 [J&T EXPRESS] Attempting to solve reCAPTCHAs...`);
-    const result = await page.solveRecaptchas();
-    console.log(`✅ [J&T EXPRESS] reCAPTCHA result:`, {
-      captchasFound: result.captchas?.length || 0,
-      solutionsCount: result.solutions?.length || 0,
-      solvedCount: result.solved?.length || 0,
-      hasError: !!result.error
-    });
+        console.log(`🔍 [J&T EXPRESS] Attempting to solve reCAPTCHAs...`);
+        const result = await page.solveRecaptchas();
+        console.log(`✅ [J&T EXPRESS] reCAPTCHA result:`, {
+          captchasFound: result.captchas?.length || 0,
+          solutionsCount: result.solutions?.length || 0,
+          solvedCount: result.solved?.length || 0,
+          hasError: !!result.error
+        });
 
-    if (result.error) {
-      console.log(`⚠️ [J&T EXPRESS] reCAPTCHA solving error:`, result.error);
+        if (result.error) {
+          console.log(`⚠️ [J&T EXPRESS] reCAPTCHA solving error:`, result.error);
+        }
+
+        console.log(`⏳ [J&T EXPRESS] Waiting 15 seconds for content to load...`);
+        await new Promise(resolve => setTimeout(resolve, 15000));
+
+        // Check if tracking data is present
+        console.log(`🔍 [J&T EXPRESS] Checking for tracking data...`);
+        const hasTrackingData = await page.evaluate(() => {
+          // Check for tracking information elements
+          const trackingInfo = (globalThis as any).document
+            .querySelector('#tracking')
+            .shadowRoot
+            .querySelector('#shipment-result-card');
+
+          // Check for content indicators
+          const hasContent = trackingInfo !== null;
+
+          return hasContent;
+        });
+
+        if (hasTrackingData) {
+          console.log(`✅ [J&T EXPRESS] Tracking data found, taking screenshot...`);
+          const screenshot = await page.screenshot({ fullPage: false });
+          console.log(`✅ [J&T EXPRESS] Screenshot captured, size: ${screenshot.length} bytes`);
+          console.log(`✨ [J&T EXPRESS] All done!`);
+          return Buffer.from(screenshot);
+        } else {
+          console.log(`⚠️ [J&T EXPRESS] No tracking data found (attempt ${attempt}/${maxRetries})`);
+
+          if (attempt < maxRetries) {
+            const delay = attempt * 3000; // 3s, 6s, 9s
+            console.log(`⏳ [J&T EXPRESS] Waiting ${delay}ms before retry...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          } else {
+            throw new Error('No tracking data found after all retries');
+          }
+        }
+      } catch (error: any) {
+        lastError = error;
+        console.error(`💥 [J&T EXPRESS] Attempt ${attempt}/${maxRetries} failed:`, error.message);
+
+        if (attempt < maxRetries) {
+          const delay = attempt * 3000;
+          console.log(`⏳ [J&T EXPRESS] Waiting ${delay}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
     }
 
-    console.log(`⏳ [J&T EXPRESS] Waiting 15 seconds for content to load...`);
-    await new Promise(resolve => setTimeout(resolve, 15000));
-
-    console.log(`📸 [J&T EXPRESS] Taking screenshot...`);
-    const screenshot = await page.screenshot({ fullPage: false });
-    console.log(`✅ [J&T EXPRESS] Screenshot captured, size: ${screenshot.length} bytes`);
-
-    console.log(`✨ [J&T EXPRESS] All done!`);
-    return Buffer.from(screenshot);
+    console.error(`💥 [J&T EXPRESS] All ${maxRetries} attempts failed`);
+    throw lastError || new Error('Failed to capture screenshot after all retries');
   } catch (error) {
     console.error(`💥 [J&T EXPRESS] Error in jtexpressScreenshouter:`, error);
     throw error;
@@ -331,70 +424,70 @@ async function bestExpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buf
 
 async function viettelPostRenderScreenshot(data: any): Promise<Buffer> {
   let page;
-    try {
-      // Read HTML template
-      const htmlPath = path.join(__dirname, '../../templates/viettel-tracking.html');
-      let html = fs.readFileSync(htmlPath, 'utf-8');
-  
-      // Read location icon and convert to base64
-      const iconPath = path.join(__dirname, '../../public/location-v2.png');
-      const iconBuffer = fs.readFileSync(iconPath);
-      const iconBase64 = `data:image/png;base64,${iconBuffer.toString('base64')}`;
-  
-      // Extract and format data
-      const maVanDon = data.MAVANDON || 'N/A';
-      const trongLuong = data.TRONG_LUONG || 0;
-      const dichVu = data.DICH_VU || 'N/A';
-      const senderInfo = `${data.SENDER_FULLNAME || 'N/A'} - ${data.SENDER_PROVINCE || ''} - ${data.SENDER_DISTRICT || ''}`.trim();
-      const receiverInfo = `${data.RECEIVER_FULLNAME || 'N/A'} - ${data.RECEIVER_PROVINCE || ''} - ${data.RECEIVER_DISTRICT || ''}`.trim();
-      const trangThai = data.TRANGTHAI || 'N/A';
-      const ngayTao = data.NGAY_GUI ? data.NGAY_GUI.split(' ')[0] : 'N/A';
-      const ngayNhanHang = data.NGAY_GUI ? data.NGAY_GUI.split(' ')[0] : 'N/A';
-      const ngayGiaoDuKien = data.EXPECTED_TIME || 'N/A';
-  
-      // Build timeline from TRACKING_ORDERS
-      let timelineHtml = '';
-      if (data.TRACKING_ORDERS && Array.isArray(data.TRACKING_ORDERS)) {
-        data.TRACKING_ORDERS.forEach((order: any, index: number) => {
-          const statusName = order.STATUS_NAME || 'N/A';
-  
-          if (order.TRACKINGS && Array.isArray(order.TRACKINGS)) {
-            const firstTracking = order.TRACKINGS[0];
-            const hasMoreItems = order.TRACKINGS.length > 1;
-  
-            if (firstTracking) {
-              const isActive = index === 0 ? ' active' : '';
-              const thoiGian = firstTracking.THOI_GIAN || 'N/A';
-              const ghiChu = firstTracking.GHI_CHU || '';
-              const noiDung = firstTracking.NOI_DUNG || '';
-  
-              let timelineContent = `${thoiGian}: `;
-  
-              if (firstTracking.RECEIVER_FULLNAME) {
-                timelineContent += `Người nhận: ${firstTracking.RECEIVER_FULLNAME}`;
-              } else if (firstTracking.NHAN_VIEN_PHAT_DETAIL) {
-                const nvName = firstTracking.NHAN_VIEN_PHAT_DETAIL.NAME || '';
-                const nvPhone = firstTracking.NHAN_VIEN_PHAT_DETAIL.PHONE || '';
-                timelineContent += `Nhân viên ${ghiChu.toLowerCase()} ${nvName} - ${nvPhone}`;
-  
-                const tenBuuCuc = firstTracking.TEN_BUUCUC_DI || firstTracking.TEN_BUUCUC_DEN || '';
-                const sdtBuuCuc = firstTracking.SDT_BUU_CUC_DI || firstTracking.SDT_BUU_CUC_DEN || '';
-                if (tenBuuCuc) timelineContent += ` - ${tenBuuCuc}`;
-                if (sdtBuuCuc) timelineContent += ` - ${sdtBuuCuc}`;
-              } else if (noiDung) {
-                timelineContent += noiDung;
-                const tenBuuCuc = firstTracking.TEN_BUUCUC_DI || firstTracking.TEN_BUUCUC_DEN || '';
-                if (tenBuuCuc && !noiDung.includes(tenBuuCuc)) {
-                  timelineContent += ` - ${tenBuuCuc}`;
-                }
-              } else {
-                timelineContent += ghiChu;
-              }
-  
+  try {
+    // Read HTML template
+    const htmlPath = path.join(__dirname, '../../templates/viettel-tracking.html');
+    let html = fs.readFileSync(htmlPath, 'utf-8');
+
+    // Read location icon and convert to base64
+    const iconPath = path.join(__dirname, '../../public/location-v2.png');
+    const iconBuffer = fs.readFileSync(iconPath);
+    const iconBase64 = `data:image/png;base64,${iconBuffer.toString('base64')}`;
+
+    // Extract and format data
+    const maVanDon = data.MAVANDON || 'N/A';
+    const trongLuong = data.TRONG_LUONG || 0;
+    const dichVu = data.DICH_VU || 'N/A';
+    const senderInfo = `${data.SENDER_FULLNAME || 'N/A'} - ${data.SENDER_PROVINCE || ''} - ${data.SENDER_DISTRICT || ''}`.trim();
+    const receiverInfo = `${data.RECEIVER_FULLNAME || 'N/A'} - ${data.RECEIVER_PROVINCE || ''} - ${data.RECEIVER_DISTRICT || ''}`.trim();
+    const trangThai = data.TRANGTHAI || 'N/A';
+    const ngayTao = data.NGAY_GUI ? data.NGAY_GUI.split(' ')[0] : 'N/A';
+    const ngayNhanHang = data.NGAY_GUI ? data.NGAY_GUI.split(' ')[0] : 'N/A';
+    const ngayGiaoDuKien = data.EXPECTED_TIME || 'N/A';
+
+    // Build timeline from TRACKING_ORDERS
+    let timelineHtml = '';
+    if (data.TRACKING_ORDERS && Array.isArray(data.TRACKING_ORDERS)) {
+      data.TRACKING_ORDERS.forEach((order: any, index: number) => {
+        const statusName = order.STATUS_NAME || 'N/A';
+
+        if (order.TRACKINGS && Array.isArray(order.TRACKINGS)) {
+          const firstTracking = order.TRACKINGS[0];
+          const hasMoreItems = order.TRACKINGS.length > 1;
+
+          if (firstTracking) {
+            const isActive = index === 0 ? ' active' : '';
+            const thoiGian = firstTracking.THOI_GIAN || 'N/A';
+            const ghiChu = firstTracking.GHI_CHU || '';
+            const noiDung = firstTracking.NOI_DUNG || '';
+
+            let timelineContent = `${thoiGian}: `;
+
+            if (firstTracking.RECEIVER_FULLNAME) {
+              timelineContent += `Người nhận: ${firstTracking.RECEIVER_FULLNAME}`;
+            } else if (firstTracking.NHAN_VIEN_PHAT_DETAIL) {
+              const nvName = firstTracking.NHAN_VIEN_PHAT_DETAIL.NAME || '';
+              const nvPhone = firstTracking.NHAN_VIEN_PHAT_DETAIL.PHONE || '';
+              timelineContent += `Nhân viên ${ghiChu.toLowerCase()} ${nvName} - ${nvPhone}`;
+
               const tenBuuCuc = firstTracking.TEN_BUUCUC_DI || firstTracking.TEN_BUUCUC_DEN || '';
-              const hasLocationInfo = !firstTracking.RECEIVER_FULLNAME && tenBuuCuc && tenBuuCuc.includes('Bưu cục');
-  
-              timelineHtml += `
+              const sdtBuuCuc = firstTracking.SDT_BUU_CUC_DI || firstTracking.SDT_BUU_CUC_DEN || '';
+              if (tenBuuCuc) timelineContent += ` - ${tenBuuCuc}`;
+              if (sdtBuuCuc) timelineContent += ` - ${sdtBuuCuc}`;
+            } else if (noiDung) {
+              timelineContent += noiDung;
+              const tenBuuCuc = firstTracking.TEN_BUUCUC_DI || firstTracking.TEN_BUUCUC_DEN || '';
+              if (tenBuuCuc && !noiDung.includes(tenBuuCuc)) {
+                timelineContent += ` - ${tenBuuCuc}`;
+              }
+            } else {
+              timelineContent += ghiChu;
+            }
+
+            const tenBuuCuc = firstTracking.TEN_BUUCUC_DI || firstTracking.TEN_BUUCUC_DEN || '';
+            const hasLocationInfo = !firstTracking.RECEIVER_FULLNAME && tenBuuCuc && tenBuuCuc.includes('Bưu cục');
+
+            timelineHtml += `
         <div class="timeline-item${isActive}">
           <div class="timeline-status">${statusName}</div>
           <div class="timeline-time">${timelineContent}</div>
@@ -403,47 +496,47 @@ async function viettelPostRenderScreenshot(data: any): Promise<Buffer> {
             <img src="${iconBase64}" class="icon-location" alt="" />
           </a>` : ''}
         </div>`;
-            }
           }
-        });
-      }
-  
-      // Replace all placeholders
-      html = html.replace('{{MAVANDON}}', maVanDon);
-      html = html.replace('{{TRONG_LUONG}}', trongLuong.toString());
-      html = html.replace('{{DICH_VU}}', dichVu);
-      html = html.replace('{{SENDER_INFO}}', senderInfo);
-      html = html.replace('{{RECEIVER_INFO}}', receiverInfo);
-      html = html.replace('{{TRANGTHAI}}', trangThai);
-      html = html.replace('{{NGAY_TAO}}', ngayTao);
-      html = html.replace('{{NGAY_NHAN_HANG}}', ngayNhanHang);
-      html = html.replace('{{NGAY_GIAO_DU_KIEN}}', ngayGiaoDuKien);
-      html = html.replace('{{TIMELINE_ITEMS}}', timelineHtml);
-  
-      const browserContext = await PlaywrightBrowserSingleton.getContext();
-      if (!browserContext) {
-        throw new Error('Failed to get browser context');
-      }
-  
-      page = await browserContext.newPage();
-      await page.setContent(html, { waitUntil: 'networkidle' });
-  
-      await new Promise(resolve => setTimeout(resolve, 10000));
-  
-      // Take screenshot
-      const screenshot = await page.screenshot({
-        type: 'png',
-        fullPage: true
+        }
       });
-  
-      // Return image
-      return Buffer.from(screenshot);
-    } catch (error) {
-      console.error('Error generating screenshot:', error);
-      throw error;
-    } finally {
-      if (page) await page.close();
     }
+
+    // Replace all placeholders
+    html = html.replace('{{MAVANDON}}', maVanDon);
+    html = html.replace('{{TRONG_LUONG}}', trongLuong.toString());
+    html = html.replace('{{DICH_VU}}', dichVu);
+    html = html.replace('{{SENDER_INFO}}', senderInfo);
+    html = html.replace('{{RECEIVER_INFO}}', receiverInfo);
+    html = html.replace('{{TRANGTHAI}}', trangThai);
+    html = html.replace('{{NGAY_TAO}}', ngayTao);
+    html = html.replace('{{NGAY_NHAN_HANG}}', ngayNhanHang);
+    html = html.replace('{{NGAY_GIAO_DU_KIEN}}', ngayGiaoDuKien);
+    html = html.replace('{{TIMELINE_ITEMS}}', timelineHtml);
+
+    const browserContext = await PlaywrightBrowserSingleton.getContext();
+    if (!browserContext) {
+      throw new Error('Failed to get browser context');
+    }
+
+    page = await browserContext.newPage();
+    await page.setContent(html, { waitUntil: 'networkidle' });
+
+    await new Promise(resolve => setTimeout(resolve, 10000));
+
+    // Take screenshot
+    const screenshot = await page.screenshot({
+      type: 'png',
+      fullPage: true
+    });
+
+    // Return image
+    return Buffer.from(screenshot);
+  } catch (error) {
+    console.error('Error generating screenshot:', error);
+    throw error;
+  } finally {
+    if (page) await page.close();
+  }
 }
 
 export default router;
