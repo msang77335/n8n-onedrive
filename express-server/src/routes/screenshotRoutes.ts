@@ -3,6 +3,7 @@ import { Request, Response, Router } from 'express';
 import { PlaywrightBrowserSingleton } from '../helpers/PlaywrightBrowserSingleton';
 import path from 'node:path';
 import fs from 'node:fs';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 function isSPX(providerStr: string) {
   return providerStr.toUpperCase().includes('SPX');
@@ -23,6 +24,11 @@ function isBestExpress(providerStr: string) {
 function isViettelPost(providerStr: string) {
   const upperStr = providerStr.toUpperCase();
   return upperStr.includes('VIETTEL POST') || upperStr.includes('VTP');
+}
+
+function isVnPost(providerStr: string) {
+  const upperStr = providerStr.toUpperCase();
+  return upperStr.includes('VN POST') || upperStr.includes('VIET NAM POST');
 }
 
 const router = Router();
@@ -89,6 +95,10 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       // Call direct function instead of HTTP request
       screenshotBuffer = await viettelPostRenderScreenshot(orderData);
       console.log(`✅ [VIETTEL POST] Screenshot rendered, size: ${screenshotBuffer.length} bytes`);
+    }
+
+    if (isVnPost(provider)) {
+      screenshotBuffer = await vnPostScreenshoter(codes);
     }
 
     if (!screenshotBuffer) {
@@ -172,7 +182,7 @@ async function screenshoter(url: string, provider?: string, code?: string): Prom
         const spxHasData = (globalThis as any).document.querySelector('.quick-tracking-search-result');
 
         const ghnHasData = (globalThis as any).document.querySelector('.order-history-container')?.textContent?.trim().length > 0;
-      
+
         return spxHasData || ghnHasData;
       });
 
@@ -215,61 +225,76 @@ async function screenshoter(url: string, provider?: string, code?: string): Prom
 
 async function viettelPostScreenshoter(code?: string): Promise<any> {
   const solver = new Solver(process.env.CAPTCHA_SOLVER_API_KEY || '');
-  try {
-    console.log(`📍 [VIETTEL POST] Solve captcha for code: ${code}`);
-    // 1. Solve captcha
-    const solverResult = await solver.recaptcha({
-      pageurl: 'https://viettelpost.vn/viettelpost-iframe/tra-cuu-hanh-trinh-don-hang-v3-recaptcha',
-      googlekey: '6LciQq8eAAAAAIFSqZTSd6P8wrBYoilzdvudW3Nc'
-    });
-    const captchaToken = solverResult.data;
-    console.log(`✅ [VIETTEL POST] CAPTCHA Solved:`, captchaToken?.substring(0, 50) + '...');
+  const maxRetries = 3;
+  let lastError;
 
-    // 2. Prepare headers
-    const myHeaders: Record<string, string> = {
-      "Accept": "application/json, text/plain, */*",
-      "Accept-Language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7,vi;q=0.6",
-      "Cache-Control": "no-cache",
-      "Connection": "keep-alive",
-      "Content-Type": "application/json",
-      "Origin": "https://viettelpost.vn",
-      "Pragma": "no-cache",
-      "Referer": "https://viettelpost.vn/",
-      "Sec-Fetch-Dest": "empty",
-      "Sec-Fetch-Mode": "cors",
-      "Sec-Fetch-Site": "same-site",
-      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      "sec-ch-ua": '"Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"',
-      "sec-ch-ua-mobile": "?0",
-      "sec-ch-ua-platform": '"macOS"',
-      // Cookie có thể không cần nếu không login, nếu cần thì lấy từ browser
-    };
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`📍 [VIETTEL POST] Solve captcha for code: ${code} (attempt ${attempt}/${maxRetries})`);
+      // 1. Solve captcha
+      const solverResult = await solver.recaptcha({
+        pageurl: 'https://viettelpost.vn/viettelpost-iframe/tra-cuu-hanh-trinh-don-hang-v3-recaptcha',
+        googlekey: '6LciQq8eAAAAAIFSqZTSd6P8wrBYoilzdvudW3Nc'
+      });
+      const captchaToken = solverResult.data;
+      console.log(`✅ [VIETTEL POST] CAPTCHA Solved:`, captchaToken?.substring(0, 50) + '...');
 
-    // 3. Prepare body
-    const raw = JSON.stringify({
-      captcha: captchaToken,
-      orders: code
-    });
+      // 2. Prepare headers
+      const myHeaders: Record<string, string> = {
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7,vi;q=0.6",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "Content-Type": "application/json",
+        "Origin": "https://viettelpost.vn",
+        "Pragma": "no-cache",
+        "Referer": "https://viettelpost.vn/",
+        "Sec-Fetch-Dest": "empty",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "same-site",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+        "sec-ch-ua": '"Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"macOS"',
+        // Cookie có thể không cần nếu không login, nếu cần thì lấy từ browser
+      };
 
-    // 4. Call API
-    const response = await fetch("https://api.viettelpost.vn/api/orders/viewTrackingOrders3", {
-      method: "POST",
-      headers: myHeaders,
-      body: raw,
-      redirect: "follow"
-    });
+      // 3. Prepare body
+      const raw = JSON.stringify({
+        captcha: captchaToken,
+        orders: code
+      });
 
-    if (!response.ok) {
-      throw new Error(`ViettelPost API returned status ${response.status}: ${await response.text()}`);
+      // 4. Call API
+      console.log(`🌐 [VIETTEL POST] Calling API...`);
+      const response = await fetch("https://api.viettelpost.vn/api/orders/viewTrackingOrders3", {
+        method: "POST",
+        headers: myHeaders,
+        body: raw,
+        redirect: "follow"
+      });
+
+      if (!response.ok) {
+        throw new Error(`ViettelPost API returned status ${response.status}: ${await response.text()}`);
+      }
+
+      const result = await response.json();
+      console.log(`✅ [VIETTEL POST] API result:`, result);
+      return result;
+    } catch (error: any) {
+      lastError = error;
+      console.error(`💥 [VIETTEL POST] Attempt ${attempt}/${maxRetries} failed:`, error.message);
+
+      if (attempt < maxRetries) {
+        const delay = attempt * 3000; // 3s, 6s, 9s
+        console.log(`⏳ [VIETTEL POST] Waiting ${delay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
     }
-
-    const result = await response.json();
-    console.log(`✅ [VIETTEL POST] API result:`, result);
-    return result;
-  } catch (error) {
-    console.error(`💥 [VIETTEL POST] Error in viettelPostScreenshoter:`, error);
-    throw error;
   }
+
+  console.error(`💥 [VIETTEL POST] All ${maxRetries} attempts failed`);
+  throw lastError || new Error('Failed to fetch ViettelPost tracking data after all retries');
 }
 
 async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffer> {
@@ -536,6 +561,196 @@ async function viettelPostRenderScreenshot(data: any): Promise<Buffer> {
     throw error;
   } finally {
     if (page) await page.close();
+  }
+}
+
+async function vnPostScreenshoter(code?: string): Promise<any> {
+  const url = `https://vietnampost.vn/vi`;
+  console.log(`📍 [VN POST] Starting screenshot for URL: ${url}`);
+  let page;
+  const browserContext = await PlaywrightBrowserSingleton.getContext();
+  if (!browserContext) {
+    throw new Error('Failed to get browser context');
+  }
+
+  const maxRetries = 3;
+  let lastError;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`🆕 [VN POST SCREENSHOT] Creating new page (attempt ${attempt}/${maxRetries})...`);
+      page = await browserContext.newPage();
+
+      page.setViewportSize({ width: 1280, height: 1800 });
+
+      page.setDefaultTimeout(90000); // 90 seconds
+      console.log(`⏱️ [VN POST SCREENSHOT] Default timeout set to 90 seconds`);
+      console.log(`🌐 [VN POST SCREENSHOT] Navigating to ${url}...`);
+
+      // Try with 'domcontentloaded' first (faster, more reliable than 'networkidle')
+      try {
+        await page.goto(url, {
+          waitUntil: 'domcontentloaded',
+          timeout: 60000
+        });
+      } catch (gotoError: any) {
+        console.log(`⚠️ [VN POST SCREENSHOT] Navigation issue: ${gotoError.message}, retrying with 'load'...`);
+
+        // Retry with 'load' if domcontentloaded fails
+        await page.goto(url, {
+          waitUntil: 'load',
+          timeout: 60000
+        });
+      }
+
+      console.log(`✅ [VN POST SCREENSHOT] Page loaded successfully`);
+
+      console.log(`⏳ [VN POST SCREENSHOT] Waiting 5 seconds for captcha to load...`);
+      await new Promise(resolve => setTimeout(resolve, 5000));
+
+      // Locate and screenshot the captcha
+      console.log(`📸 [VN POST SCREENSHOT] Looking for captcha image...`);
+      const captchaElement = page.locator('#tra-cuu-captcha');
+
+      let captchaText = '';
+      if (await captchaElement.count() > 0) {
+        console.log(`✅ [VN POST SCREENSHOT] Captcha found, taking screenshot...`);
+        const captchaScreenshot = await captchaElement.screenshot();
+        console.log(`✅ [VN POST SCREENSHOT] Captcha screenshot captured, size: ${captchaScreenshot.length} bytes`);
+
+        // Save captcha to logs for debugging
+        const captchaPath = path.join(__dirname, '../../logs/vnpost-captcha.png');
+        fs.writeFileSync(captchaPath, captchaScreenshot);
+        console.log(`💾 [VN POST SCREENSHOT] Captcha saved to: ${captchaPath}`);
+
+        // Use Gemini to read captcha text
+        console.log(`🤖 [VN POST SCREENSHOT] Using Gemini AI to read captcha...`);
+        captchaText = await readCaptchaWithGemini(captchaScreenshot);
+        console.log(`✅ [VN POST SCREENSHOT] Captcha text extracted: ${captchaText}`);
+
+        // Fill in the captcha input
+        console.log(`⌨️ [VN POST SCREENSHOT] Filling captcha input...`);
+        const captchaInput = page.locator('input[ng-model="data.dataSearch.captcha"]');
+        await captchaInput.waitFor({ state: 'visible', timeout: 10000 });
+        await captchaInput.fill(captchaText);
+
+        // Fill in the tracking code
+        console.log(`⌨️ [VN POST SCREENSHOT] Filling tracking code: ${code}...`);
+        const trackingInput = page.locator('input.input-tracking[ng-model="data.dataSearch.post_code"]');
+        await trackingInput.waitFor({ state: 'visible', timeout: 10000 });
+        await trackingInput.fill(code || '');
+
+        // Click search button
+        console.log(`🔍 [VN POST SCREENSHOT] Clicking search button...`);
+        const searchButton = page.locator('button.button-tracking[ng-click="actions.search()"]');
+        await searchButton.waitFor({ state: 'visible', timeout: 10000 });
+        await searchButton.click();
+
+        console.log(`⏳ [VN POST SCREENSHOT] Waiting 10 seconds for results...`);
+        await new Promise(resolve => setTimeout(resolve, 10000));
+      } else {
+        console.log(`⚠️ [VN POST SCREENSHOT] Captcha element not found`);
+        await new Promise(resolve => setTimeout(resolve, 10000));
+      }
+
+      // Check if tracking data is present
+      console.log(`🔍 [VN POST SCREENSHOT] Checking for tracking data...`);
+      const hasTrackingData = await page.evaluate(() => {
+        // Check for captcha error message
+        const captchaError = (globalThis as any).document.querySelector('span.text-danger');
+        if (captchaError?.textContent?.includes('Vui lòng nhập captcha') ||
+          captchaError?.textContent?.includes('Captcha không đúng hoặc đã hết hạn')
+        ) {
+          return false; // Captcha error, need to retry
+        }
+
+        // Check for other error messages
+        const errorElements = (globalThis as any).document.querySelectorAll('.text-danger, .error-message');
+        for (const el of errorElements) {
+          if (el.textContent && el.textContent.trim().length > 0) {
+            console.log('Error found:', el.textContent);
+            return false;
+          }
+        }
+
+        return true;
+      });
+
+      if (hasTrackingData) {
+        console.log(`✅ [VN POST SCREENSHOT] Tracking data found, taking screenshot...`);
+
+        // Get viewport size and calculate clip area (skip header ~600px)
+        const viewportSize = page.viewportSize();
+        const clipOptions = viewportSize ? {
+          x: 0,
+          y: 600, // Skip header
+          width: viewportSize.width,
+          height: viewportSize.height - 600 // Don't exceed viewport bounds
+        } : undefined;
+
+        console.log(`📐 [VN POST SCREENSHOT] Clip options:`, clipOptions);
+
+        const screenshot = await page.screenshot({
+          fullPage: false,
+          clip: clipOptions
+        });
+        console.log(`✅ [VN POST SCREENSHOT] Screenshot captured, size: ${screenshot.length} bytes`);
+        console.log(`✨ [VN POST SCREENSHOT] All done!`);
+        return Buffer.from(screenshot);
+      } else {
+        console.log(`⚠️ [VN POST SCREENSHOT] No tracking data found (attempt ${attempt}/${maxRetries})`);
+
+        if (attempt < maxRetries) {
+          throw new Error('No tracking data found, will retry');
+        } else {
+          throw new Error('No tracking data found after all retries');
+        }
+      }
+
+    } catch (error: any) {
+      lastError = error;
+      console.error(`💥 [VN POST SCREENSHOT] Attempt ${attempt}/${maxRetries} failed:`, error.message);
+
+      if (page && !page.isClosed()) {
+        await page.close().catch(e => console.log('Error closing page:', e));
+        page = undefined;
+      }
+
+      if (attempt < maxRetries) {
+        const delay = attempt * 2000; // Exponential backoff
+        console.log(`⏳ [VN POST SCREENSHOT] Waiting ${delay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  console.error(`💥 [SCREENSHOT] All ${maxRetries} attempts failed`);
+  throw lastError;
+}
+
+async function readCaptchaWithGemini(imageBuffer: Buffer): Promise<string> {
+  try {
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+    const prompt = `This is a captcha image. Please extract and return ONLY the text/numbers shown in the captcha. Return just the captcha text without any explanation or additional text.`;
+
+    const imagePart = {
+      inlineData: {
+        data: imageBuffer.toString('base64'),
+        mimeType: 'image/png',
+      },
+    };
+
+    const result = await model.generateContent([prompt, imagePart]);
+    const response = await result.response;
+    const text = response.text().trim();
+
+    console.log(`🤖 [GEMINI] Raw response: ${text}`);
+    return text;
+  } catch (error) {
+    console.error(`💥 [GEMINI] Error reading captcha:`, error);
+    throw error;
   }
 }
 
