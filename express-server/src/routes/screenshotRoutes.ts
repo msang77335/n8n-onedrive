@@ -619,7 +619,12 @@ async function vnPostScreenshoter(code?: string): Promise<any> {
         console.log(`✅ [VN POST SCREENSHOT] Captcha screenshot captured, size: ${captchaScreenshot.length} bytes`);
 
         // Save captcha to logs for debugging
-        const captchaPath = path.join(__dirname, '../../logs/vnpost-captcha.png');
+        const logsDir = path.join(__dirname, '../../logs');
+        if (!fs.existsSync(logsDir)) {
+          fs.mkdirSync(logsDir, { recursive: true });
+          console.log(`📁 [VN POST SCREENSHOT] Created logs directory: ${logsDir}`);
+        }
+        const captchaPath = path.join(logsDir, 'vnpost-captcha.png');
         fs.writeFileSync(captchaPath, captchaScreenshot);
         console.log(`💾 [VN POST SCREENSHOT] Captcha saved to: ${captchaPath}`);
 
