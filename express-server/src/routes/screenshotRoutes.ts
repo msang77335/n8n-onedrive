@@ -191,6 +191,11 @@ async function screenshoter(url: string, provider?: string, code?: string): Prom
         const screenshot = await page.screenshot({ fullPage: false });
         console.log(`✅ [SCREENSHOT] Screenshot captured, size: ${screenshot.length} bytes`);
         console.log(`✨ [SCREENSHOT] All done!`);
+        
+        if (page && !page.isClosed()) {
+          await page.close().catch(e => console.log('Error closing page:', e));
+        }
+        
         return Buffer.from(screenshot);
       } else {
         console.log(`⚠️ [SCREENSHOT] No tracking data found (attempt ${attempt}/${maxRetries})`);
@@ -359,6 +364,12 @@ async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffe
           const screenshot = await page.screenshot({ fullPage: false });
           console.log(`✅ [J&T EXPRESS] Screenshot captured, size: ${screenshot.length} bytes`);
           console.log(`✨ [J&T EXPRESS] All done!`);
+          
+          if (page && !page.isClosed()) {
+            console.log(`🔒 [J&T EXPRESS] Closing page after success...`);
+            await page.close();
+          }
+          
           return Buffer.from(screenshot);
         } else {
           console.log(`⚠️ [J&T EXPRESS] No tracking data found (attempt ${attempt}/${maxRetries})`);
@@ -701,6 +712,11 @@ async function vnPostScreenshoter(code?: string): Promise<any> {
         });
         console.log(`✅ [VN POST SCREENSHOT] Screenshot captured, size: ${screenshot.length} bytes`);
         console.log(`✨ [VN POST SCREENSHOT] All done!`);
+        
+        if (page && !page.isClosed()) {
+          await page.close().catch(e => console.log('Error closing page:', e));
+        }
+        
         return Buffer.from(screenshot);
       } else {
         console.log(`⚠️ [VN POST SCREENSHOT] No tracking data found (attempt ${attempt}/${maxRetries})`);
