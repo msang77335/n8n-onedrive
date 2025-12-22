@@ -748,11 +748,16 @@ async function readCaptchaWithGemini(imageBuffer: Buffer): Promise<string> {
     };
 
     const result = await model.generateContent([prompt, imagePart]);
-    const response = await result.response;
+    const response = result.response;
     const text = response.text().trim();
 
     console.log(`🤖 [GEMINI] Raw response: ${text}`);
-    return text;
+    
+    // Extract only alphanumeric characters (letters and numbers)
+    const cleanText = text.replace(/[^a-zA-Z0-9]/g, '');
+    console.log(`🧹 [GEMINI] Cleaned text: ${cleanText}`);
+    
+    return cleanText;
   } catch (error) {
     console.error(`💥 [GEMINI] Error reading captcha:`, error);
     throw error;
