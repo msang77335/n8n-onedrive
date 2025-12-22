@@ -28,7 +28,7 @@ function isViettelPost(providerStr: string) {
 
 function isVnPost(providerStr: string) {
   const upperStr = providerStr.toUpperCase();
-  return upperStr.includes('VN POST') || upperStr.includes('VIET NAM POST');
+  return upperStr.includes('VN POST') || upperStr.includes('VIETNAM POST');
 }
 
 const router = Router();
