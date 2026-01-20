@@ -1,44 +1,6 @@
 version: '3.8'
 
 services:
-  browserless:
-    image: ghcr.io/browserless/chromium
-    restart: unless-stopped
-
-    # recaptcha cần port khi bạn muốn truy cập từ local để kiểm tra
-    # ports:
-    #   - "3000:3000"
-
-    networks:
-      automation-net:
-        aliases:
-          - chrome
-          - browser
-          - headless-chrome
-
-    environment:
-      - TIMEOUT=60000
-      - STEALTH=true
-      - IGNORE_HTTPS_ERRORS=true
-      - DISABLE_WEBRTC=true
-      - MAX_CONCURRENT_SESSIONS=10
-      - TOKEN=${BROWSERLESS_API_TOKEN_LOCAL}
-
-      # Chrome flags cần cho reCAPTCHA (KHÔNG được thiếu)
-      - DEFAULT_LAUNCH_ARGS=--disable-dev-shm-usage=false \
-                            --no-sandbox=false \
-                            --disable-gpu=false \
-                            --disable-web-security=false \
-                            --allow-insecure-localhost \
-                            --window-size=1280,720 \
-                            --font-render-hinting=medium \
-                            --enable-font-antialiasing
-
-    # cài fonts để recaptcha render chữ → bắt buộc
-    volumes:
-      - ./fonts:/usr/share/fonts
-
-
   n8n:
     image: docker.n8n.io/n8nio/n8n
     # ports:
@@ -58,7 +20,6 @@ services:
       - GENERIC_TIMEZONE=${TIMEZONE}
       - WEBHOOK_URL=${WEBHOOK_URL}
 
-
   express-server:
     build:
       context: ./express-server
@@ -74,10 +35,8 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=8000
-      - BROWSERLESS_API_TOKEN_LOCAL=${BROWSERLESS_API_TOKEN_LOCAL}
       - CAPTCHA_SOLVER_API_KEY=${CAPTCHA_SOLVER_API_KEY}
       - BROWSERLESS_API_TOKEN=${BROWSERLESS_API_TOKEN}
-      - BROWSERLESS_PORT=${BROWSERLESS_PORT}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
     restart: unless-stopped
     healthcheck:
