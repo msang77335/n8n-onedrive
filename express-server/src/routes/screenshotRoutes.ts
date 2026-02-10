@@ -5,6 +5,10 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
+function USPS(providerStr: string) {
+  return providerStr.toUpperCase().includes('USPS');
+}
+
 function isSPX(providerStr: string) {
   return providerStr.toUpperCase().includes('SPX');
 }
@@ -58,6 +62,10 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     }
 
     let screenshotBuffer = null;
+
+    if (USPS(provider)) {
+      screenshotBuffer = await uspsScreenshouter({ codes });
+    }
 
     if (isGiaoHangNhanh(provider)) {
       screenshotBuffer = await screenshoter(`https://donhang.ghn.vn/?order_code=${codes}`);
@@ -191,11 +199,11 @@ async function screenshoter(url: string, provider?: string, code?: string): Prom
         const screenshot = await page.screenshot({ fullPage: false });
         console.log(`✅ [SCREENSHOT] Screenshot captured, size: ${screenshot.length} bytes`);
         console.log(`✨ [SCREENSHOT] All done!`);
-        
+
         if (page && !page.isClosed()) {
           await page.close().catch(e => console.log('Error closing page:', e));
         }
-        
+
         return Buffer.from(screenshot);
       } else {
         console.log(`⚠️ [SCREENSHOT] No tracking data found (attempt ${attempt}/${maxRetries})`);
@@ -364,12 +372,12 @@ async function jtexpressScreenshouter({ codes }: ScreenshotQuery): Promise<Buffe
           const screenshot = await page.screenshot({ fullPage: false });
           console.log(`✅ [J&T EXPRESS] Screenshot captured, size: ${screenshot.length} bytes`);
           console.log(`✨ [J&T EXPRESS] All done!`);
-          
+
           if (page && !page.isClosed()) {
             console.log(`🔒 [J&T EXPRESS] Closing page after success...`);
             await page.close();
           }
-          
+
           return Buffer.from(screenshot);
         } else {
           console.log(`⚠️ [J&T EXPRESS] No tracking data found (attempt ${attempt}/${maxRetries})`);
@@ -712,11 +720,11 @@ async function vnPostScreenshoter(code?: string): Promise<any> {
         });
         console.log(`✅ [VN POST SCREENSHOT] Screenshot captured, size: ${screenshot.length} bytes`);
         console.log(`✨ [VN POST SCREENSHOT] All done!`);
-        
+
         if (page && !page.isClosed()) {
           await page.close().catch(e => console.log('Error closing page:', e));
         }
-        
+
         return Buffer.from(screenshot);
       } else {
         console.log(`⚠️ [VN POST SCREENSHOT] No tracking data found (attempt ${attempt}/${maxRetries})`);
@@ -768,15 +776,120 @@ async function readCaptchaWithGemini(imageBuffer: Buffer): Promise<string> {
     const text = response.text().trim();
 
     console.log(`🤖 [GEMINI] Raw response: ${text}`);
-    
+
     // Extract only alphanumeric characters (letters and numbers)
     const cleanText = text.replace(/[^a-zA-Z0-9]/g, '');
     console.log(`🧹 [GEMINI] Cleaned text: ${cleanText}`);
-    
+
     return cleanText;
   } catch (error) {
     console.error(`💥 [GEMINI] Error reading captcha:`, error);
     throw error;
+  }
+}
+
+async function uspsScreenshouter({ codes }: ScreenshotQuery): Promise<Buffer> {
+  console.log(`📍 [USPS] Starting screenshot for tracking: ${codes}`);
+
+  let page;
+  const browserContext = await PlaywrightBrowserSingleton.getContext();
+  if (!browserContext) {
+    throw new Error('Failed to get browser context');
+  }
+
+  const maxRetries = 3;
+  let lastError;
+
+  try {
+    console.log(`🆕 [USPS] Creating new page...`);
+    page = await browserContext.newPage();
+    page.setDefaultTimeout(120000); // 120 seconds
+    console.log(`⏱️ [USPS] Default timeout set to 120 seconds`);
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`🌐 [USPS] Navigating to aftership.com (attempt ${attempt}/${maxRetries})...`);
+        await page.goto(`https://www.aftership.com/track?c=usps-vn&t=${codes}`, {
+          waitUntil: 'networkidle'
+        });
+        console.log(`✅ [USPS] Page loaded successfully`);
+
+        console.log(`🔍 [USPS] Attempting to solve reCAPTCHAs...`);
+        const result = await page.solveRecaptchas();
+        console.log(`✅ [USPS] reCAPTCHA result:`, {
+          captchasFound: result.captchas?.length || 0,
+          solutionsCount: result.solutions?.length || 0,
+          solvedCount: result.solved?.length || 0,
+          hasError: !!result.error
+        });
+
+        if (result.error) {
+          console.log(`⚠️ [USPS] reCAPTCHA solving error:`, result.error);
+        }
+
+        console.log(`⏳ [USPS] Waiting 15 seconds for content to load...`);
+        await new Promise(resolve => setTimeout(resolve, 15000));
+
+        // Check if tracking data is present
+        console.log(`🔍 [USPS] Checking for tracking data...`);
+        const hasTrackingData = await page.evaluate(() => {
+          // Check for tracking information elements
+          const trackingInfo = (globalThis as any).document
+            .querySelector('#tracking')
+            .shadowRoot
+            .querySelector('#shipment-result-card');
+
+          // Check for content indicators
+          const hasContent = trackingInfo !== null;
+
+          return hasContent;
+        });
+
+        if (hasTrackingData) {
+          console.log(`✅ [USPS] Tracking data found, taking screenshot...`);
+          const screenshot = await page.screenshot({ fullPage: false });
+          console.log(`✅ [USPS] Screenshot captured, size: ${screenshot.length} bytes`);
+          console.log(`✨ [USPS] All done!`);
+
+          if (page && !page.isClosed()) {
+            console.log(`🔒 [USPS] Closing page after success...`);
+            await page.close();
+          }
+
+          return Buffer.from(screenshot);
+        } else {
+          console.log(`⚠️ [USPS] No tracking data found (attempt ${attempt}/${maxRetries})`);
+
+          if (attempt < maxRetries) {
+            const delay = attempt * 3000; // 3s, 6s, 9s
+            console.log(`⏳ [USPS] Waiting ${delay}ms before retry...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          } else {
+            throw new Error('No tracking data found after all retries');
+          }
+        }
+      } catch (error: any) {
+        lastError = error;
+        console.error(`💥 [USPS] Attempt ${attempt}/${maxRetries} failed:`, error.message);
+
+        if (attempt < maxRetries) {
+          const delay = attempt * 3000;
+          console.log(`⏳ [USPS] Waiting ${delay}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+
+    console.error(`💥 [USPS] All ${maxRetries} attempts failed`);
+    throw lastError || new Error('Failed to capture screenshot after all retries');
+  } catch (error) {
+    console.error(`💥 [USPS] Error in uspsScreenshouter:`, error);
+    throw error;
+  } finally {
+    if (page && !page.isClosed()) {
+      console.log(`🔒 [USPS] Closing page in finally block...`);
+      await page.close();
+    }
   }
 }
 
