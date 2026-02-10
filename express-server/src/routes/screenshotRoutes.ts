@@ -803,7 +803,7 @@ async function uspsScreenshouter({ codes }: ScreenshotQuery): Promise<Buffer> {
   try {
     console.log(`🆕 [USPS] Creating new page...`);
     page = await browserContext.newPage();
-    page.setViewportSize({ width: 1280, height: 1120 });
+    page.setViewportSize({ width: 1280, height: 1280 });
     page.setDefaultTimeout(120000); // 120 seconds
     console.log(`⏱️ [USPS] Default timeout set to 120 seconds`);
 
