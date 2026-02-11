@@ -1,39 +1,10 @@
 import { Solver } from '@2captcha/captcha-solver';
-import { Request, Response, Router } from 'express';
-import { PlaywrightBrowserSingleton } from '../helpers/PlaywrightBrowserSingleton';
-import path from 'node:path';
-import fs from 'node:fs';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-
-function USPS(providerStr: string) {
-  return providerStr.toUpperCase().includes('USPS');
-}
-
-function isSPX(providerStr: string) {
-  return providerStr.toUpperCase().includes('SPX');
-}
-
-function isGiaoHangNhanh(providerStr: string) {
-  return providerStr.toUpperCase().includes('GIAO HÀNG NHANH') || providerStr.toUpperCase().includes('GHN');
-}
-
-function isJTExpress(providerStr: string) {
-  return providerStr.toUpperCase().includes('J&T') || providerStr.toUpperCase().includes('JT EXPRESS');
-}
-
-function isBestExpress(providerStr: string) {
-  return providerStr.toUpperCase().includes('BEST EXPRESS');
-}
-
-function isViettelPost(providerStr: string) {
-  const upperStr = providerStr.toUpperCase();
-  return upperStr.includes('VIETTEL POST') || upperStr.includes('VTP');
-}
-
-function isVnPost(providerStr: string) {
-  const upperStr = providerStr.toUpperCase();
-  return upperStr.includes('VN POST') || upperStr.includes('VIETNAM POST');
-}
+import { Request, Response, Router } from 'express';
+import fs from 'node:fs';
+import path from 'node:path';
+import { isBestExpress, isGiaoHangNhanh, isJTExpress, isSPX, isUSPS, isViettelPost, isVnPost } from '../helpers';
+import { PlaywrightBrowserSingleton } from '../helpers/PlaywrightBrowserSingleton';
 
 const router = Router();
 
@@ -63,7 +34,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 
     let screenshotBuffer = null;
 
-    if (USPS(provider)) {
+    if (isUSPS(provider)) {
       screenshotBuffer = await uspsScreenshouter({ codes });
     }
 
@@ -142,7 +113,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-async function screenshoter(url: string, provider?: string, code?: string): Promise<Buffer> {
+async function screenshoter(url: string): Promise<Buffer> {
   console.log(`📍 [SCREENSHOT] Starting screenshot for URL: ${url}`);
   let page;
   const browserContext = await PlaywrightBrowserSingleton.getContext();
