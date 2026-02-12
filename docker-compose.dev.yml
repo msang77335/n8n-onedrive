@@ -27,6 +27,7 @@ services:
     # ports:
     #   - "8000:8000"
     networks:
+      network1:
       automation-net:
         aliases:
           - api
@@ -49,6 +50,9 @@ services:
 networks:
   automation-net:
     driver: bridge
+  network1:
+    name: dokploy-network
+    external: true
 
 volumes:
   n8n_data:
