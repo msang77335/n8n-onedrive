@@ -1,9 +1,10 @@
 import { Request, Response, Router } from 'express';
-import { isGiaoHangNhanh, isJTExpress, isSPX, isUSPS, isViettelPost, isVnPost, isYunExpress } from '../helpers';
+import { isBestExpress, isGiaoHangNhanh, isJTExpress, isSPX, isUSPS, isViettelPost, isVnPost, isYunExpress } from '../helpers';
 import { aftershipScreenshouter } from '../helpers/aftershipSreenshouter';
 import { screenshoter } from '../helpers/screenshoter';
 import { viettelPostScreenshoter } from '../helpers/viettelPostScreenshoter';
 import { vnPostScreenshoter } from '../helpers/vnPostScreenshoter';
+import { bestExpressScreenshouter } from '../helpers/bestExpressScreenshouter';
 
 const router = Router();
 
@@ -46,8 +47,9 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       result = await aftershipScreenshouter({ codes, provider });
     } else if (isVnPost(provider)) {
       result = await vnPostScreenshoter(codes);
-    }
-    else {
+    } else if(isBestExpress(provider)) {
+      result = await bestExpressScreenshouter(codes);
+    } else {
       console.log(`❌ [TRACKING IMAGE] Unsupported provider: ${provider}`);
       res.status(400).json({
         success: false,

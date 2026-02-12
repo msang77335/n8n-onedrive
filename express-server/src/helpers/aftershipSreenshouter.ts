@@ -228,10 +228,13 @@ export async function aftershipScreenshouter({ codes, provider }: ScreenshotQuer
 
     const { buffer, status } = await retryScreenshotCapture({ page, codes, provider, maxRetries });
 
+    const statusArray = status.split(',');
+    const allDelivered = statusArray.every(s => s === 'DELIVERED');
+
     console.log(`🔒 [AFTERSHIP] Closing page after success...`);
     return {
       buffer,
-      status
+      status: allDelivered ? 'DELIVERED' : 'UNKNOWN'
     };
   } catch (error) {
     console.error(`💥 [AFTERSHIP] Error in aftershipScreenshouter:`, error);
