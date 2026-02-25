@@ -1,2 +1,0 @@
-designer: "Guillermo Rauch"
-link: ""

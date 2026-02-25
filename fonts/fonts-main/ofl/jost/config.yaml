@@ -1,5 +1,0 @@
-buildVariable: true
-sources:
-  - sources/designspace/jostGF.designspace
-  - sources/designspace/jostGF-Italic.designspace
-  - sources/designspace/jost.designspace

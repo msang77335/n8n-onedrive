@@ -1,5 +1,0 @@
-buildVariable: false
-sources:
-  - src/Bonbon-Regular.vfb
-  - src/Bonbon-Regular-TTF.vfb
-  - src/Bonbon-Regular-OTF.vfb
