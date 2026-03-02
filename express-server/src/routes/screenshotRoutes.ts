@@ -3,7 +3,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { Request, Response, Router } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
-import { isBestExpress, isGiaoHangNhanh, isJTExpress, isSPX, isUSPS, isViettelPost, isVnPost } from '../helpers';
+import { isBestExpress, isGiaoHangNhanh, isJTExpress, isSPX, isUSPS, isViettelPost, isVnPost, isYunExpress } from '../helpers';
 import { PlaywrightBrowserSingleton } from '../helpers/PlaywrightBrowserSingleton';
 
 const router = Router();
@@ -44,6 +44,10 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 
     if (isSPX(provider)) {
       screenshotBuffer = await screenshoter(`https://spx.vn/track?${codes}`);
+    }
+
+    if (isYunExpress(provider)) {
+      screenshotBuffer = await screenshoter(`https://www.yuntrack.com/parcelTracking?id=${codes}`);
     }
 
     if (isJTExpress(provider)) {
