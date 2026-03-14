@@ -16,8 +16,8 @@ interface TrackingQuery {
 // POST /api/v1/tracking - Get tracking image as binary with metadata in headers
 router.post('/', async (req: Request, res: Response): Promise<void> => {
   const startTime = Date.now();
-  await new Promise(resolve => setTimeout(resolve, 1000 * 60 * 2)); // Simulate 2 minutes processing time
-  
+  await new Promise(resolve => setTimeout(resolve, 1000 * 60 * 6)); // Simulate 2 minutes processing time
+
   res.json({
     success: true,
     message: 'Tracking data processed successfully',
