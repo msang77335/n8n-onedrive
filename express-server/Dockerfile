@@ -14,9 +14,9 @@ RUN npm install
 RUN npx playwright install --with-deps firefox
 
 # =========================
-# 2b. Install Chrome for Puppeteer
+# 2b. Install Chrome for Puppeteer (with system deps)
 # =========================
-RUN npx puppeteer browsers install chrome
+RUN npx puppeteer browsers install chrome --with-deps
 
 # =========================
 # 3. Copy source code
