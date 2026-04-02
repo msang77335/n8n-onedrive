@@ -193,49 +193,6 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-// GET /api/v1/scanPhone/status/:jobId - Check scan status
-router.get('/status/:jobId', (req: Request, res: Response): void => {
-  const { jobId } = req.params;
-
-  const job = scanJobs.get(jobId);
-
-  if (!job) {
-    res.status(404).json({
-      success: false,
-      error: 'Job not found',
-      jobId: jobId
-    });
-    return;
-  }
-
-  const response: any = {
-    success: true,
-    jobId: job.id,
-    billCode: job.billCode,
-    status: job.status,
-    startTime: new Date(job.startTime).toISOString()
-  };
-
-  if (job.progress !== undefined) {
-    response.progress = job.progress;
-  }
-
-  if (job.endTime) {
-    response.endTime = new Date(job.endTime).toISOString();
-    response.duration = `${((job.endTime - job.startTime) / 1000).toFixed(2)}s`;
-  }
-
-  if (job.status === 'completed' && job.result) {
-    response.result = job.result;
-  }
-
-  if (job.status === 'failed' && job.error) {
-    response.error = job.error;
-  }
-
-  res.status(200).json(response);
-});
-
 // GET /api/v1/scanPhone/list - List all jobs with status
 router.get('/list', (req: Request, res: Response): void => {
   const jobs = Array.from(scanJobs.values()).map(job => {
@@ -270,6 +227,86 @@ router.get('/list', (req: Request, res: Response): void => {
     success: true,
     total: jobs.length,
     jobs: jobs
+  });
+});
+
+// GET /api/v1/scanPhone/status/:jobId - Check scan status
+router.get('/status/:jobId', (req: Request, res: Response): void => {
+  const { jobId } = req.params;
+
+  console.log(`📋 [SCAN PHONE] Checking status for jobId: ${jobId}`);
+
+  const job = scanJobs.get(jobId);
+
+  if (!job) {
+    console.warn(`⚠️  [SCAN PHONE] Job not found: ${jobId}`);
+    res.status(404).json({
+      success: false,
+      error: 'Job not found',
+      jobId: jobId,
+      hint: `Available jobs: ${Array.from(scanJobs.keys()).join(', ') || 'None'}`
+    });
+    return;
+  }
+
+  const response: any = {
+    success: true,
+    jobId: job.id,
+    billCode: job.billCode,
+    status: job.status,
+    startTime: new Date(job.startTime).toISOString()
+  };
+
+  if (job.progress !== undefined) {
+    response.progress = job.progress;
+  }
+
+  if (job.endTime) {
+    response.endTime = new Date(job.endTime).toISOString();
+    response.duration = `${((job.endTime - job.startTime) / 1000).toFixed(2)}s`;
+  }
+
+  if (job.status === 'completed' && job.result) {
+    console.log(`✅ [SCAN PHONE] Job completed: ${jobId}`, JSON.stringify(job.result).substring(0, 100));
+    response.result = job.result;
+  }
+
+  if (job.status === 'failed' && job.error) {
+    console.error(`❌ [SCAN PHONE] Job failed: ${jobId}`, job.error);
+    response.error = job.error;
+  }
+
+  res.status(200).json(response);
+});
+
+// DELETE /api/v1/scanPhone/cleanup - Clean up old jobs
+router.delete('/cleanup', (req: Request, res: Response): void => {
+  const { olderThanSeconds = 3600 } = req.body; // Default 1 hour
+
+  const now = Date.now();
+  const cutoffTime = now - (olderThanSeconds * 1000);
+  
+  let deletedCount = 0;
+  const deletedJobs: string[] = [];
+
+  for (const [jobId, job] of scanJobs.entries()) {
+    if (job.status === 'completed' || job.status === 'failed') {
+      const jobEndTime = job.endTime || job.startTime;
+      if (jobEndTime < cutoffTime) {
+        scanJobs.delete(jobId);
+        deletedCount++;
+        deletedJobs.push(jobId);
+      }
+    }
+  }
+
+  console.log(`🧹 [SCAN PHONE] Cleanup: Deleted ${deletedCount} old jobs`);
+
+  res.status(200).json({
+    success: true,
+    message: `Cleaned up ${deletedCount} old jobs`,
+    deletedJobs: deletedJobs,
+    remainingJobs: scanJobs.size
   });
 });
 
