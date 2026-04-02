@@ -39,6 +39,7 @@ services:
       - CAPTCHA_SOLVER_API_KEY=${CAPTCHA_SOLVER_API_KEY}
       - BROWSERLESS_API_TOKEN=${BROWSERLESS_API_TOKEN}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - WEBSHARE_TOKEN=${WEBSHARE_TOKEN}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:8000/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1) })"]

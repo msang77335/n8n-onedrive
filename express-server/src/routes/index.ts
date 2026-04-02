@@ -1,12 +1,14 @@
 import { Request, Response, Router } from 'express';
 import screenshotRoutes from './screenshotRoutes';
 import trackingRoutes from './trackingRoutes';
+import scanPhoneRoutes from './scanPhoneRoutes';
 
 const router = Router();
 
 // Mount route handlers
 router.use('/screenshot', screenshotRoutes);
 router.use('/tracking', trackingRoutes);
+router.use('/scanPhone', scanPhoneRoutes);
 
 // Default API route
 router.get('/', (req: Request, res: Response): void => {
@@ -16,7 +18,8 @@ router.get('/', (req: Request, res: Response): void => {
     endpoints: {
       health: '/health',
       screenshot: '/api/v1/screenshot',
-      tracking: '/api/v1/tracking'
+      tracking: '/api/v1/tracking',
+      scanPhone: '/api/v1/scanPhone'
     }
   });
 });
