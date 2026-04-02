@@ -352,25 +352,45 @@ const runScanInBackground = async (
       verbose: false,
       maxAttempts: 10000,
       startFrom: startFrom
-    });
+    }) as {
+      status: string;
+      billcode: string;
+      validPhones?: any[];
+      totalAttempts?: number;
+      totalSeconds?: number;
+    };
 
     // Update job with result
     job.status = 'completed';
     job.endTime = Date.now();
 
-    if ('validPhones' in result && result.validPhones && result.validPhones.length > 0) {
-      console.log(`✅ [SCAN PHONE] ${jobId} - Found ${result.validPhones.length} phone number(s)`);
+    // Ensure validPhones is always present and properly typed
+    const validPhones = (result.validPhones && Array.isArray(result.validPhones)) ? result.validPhones : [];
+    const phoneCount = validPhones.length;
+
+    if (phoneCount > 0) {
+      console.log(`✅ [SCAN PHONE] ${jobId} - Found ${phoneCount} phone number(s)`);
+      validPhones.forEach((phone: any, index: number) => {
+        console.log(`   ${index + 1}. ${phone.lastFourDigits} (attempt ${phone.attemptNumber})`);
+      });
+      
       job.result = {
         found: true,
-        validPhones: result.validPhones,
-        totalAttempts: result.totalAttempts,
-        totalSeconds: result.totalSeconds
+        status: result.status || 'success',
+        billcode: billCode,
+        validPhones: validPhones,
+        totalAttempts: result.totalAttempts || 0,
+        totalSeconds: result.totalSeconds || 0
       };
     } else {
       console.log(`❌ [SCAN PHONE] ${jobId} - No valid phone numbers found`);
       job.result = {
         found: false,
+        status: result.status || 'not_found',
+        billcode: billCode,
         validPhones: [],
+        totalAttempts: result.totalAttempts || 0,
+        totalSeconds: result.totalSeconds || 0,
         message: 'No valid phone numbers found'
       };
     }

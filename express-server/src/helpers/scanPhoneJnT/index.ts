@@ -338,7 +338,14 @@ class PhoneBruteForceFinder {
         });
 
         // Stop searching after finding first valid phone
-        return validPhones[0];
+        // Return consistent format with validPhones array
+        return {
+          status: 'success',
+          billcode: billcode,
+          validPhones: validPhones,
+          totalAttempts: attemptCount,
+          totalSeconds: Number.parseFloat(elapsedSeconds)
+        };
       }
 
       // Rate limiting with random variation (1000-2000ms)
