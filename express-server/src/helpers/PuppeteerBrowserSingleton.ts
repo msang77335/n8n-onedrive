@@ -9,9 +9,30 @@ export class PuppeteerBrowserSingleton {
   private static browserInstance: Browser | null = null;
   private static pages: Page[] = [];
   private static pageIndex: number = 0;
-  private static readonly MAX_PAGES = 3;
+  private static readonly MAX_PAGES = 5;
+  private static currentProxy: string | null = null;
+  private static launchedWithProxy: string | null = null;
+
+  static setProxy(proxy: string | null): void {
+    this.currentProxy = proxy;
+    if (proxy) {
+      console.log(`🔄 [PUPPETEER] Proxy will be set to: ${proxy.split(':')[0]}:${proxy.split(':')[1]}`);
+    } else {
+      console.log(`🔄 [PUPPETEER] Proxy disabled`);
+    }
+  }
+
+  static getProxy(): string | null {
+    return this.currentProxy;
+  }
 
   static async getInstance(): Promise<Browser | null> {
+    // Check if proxy has changed - if so, recreate browser
+    if (this.browserInstance && this.currentProxy !== this.launchedWithProxy) {
+      console.log('🔄 [PUPPETEER] Proxy changed, closing existing browser instance...');
+      await this.close();
+    }
+
     if (this.browserInstance) {
       console.log('♻️ [PUPPETEER] Reusing existing browser instance');
       return this.browserInstance;
@@ -29,17 +50,37 @@ export class PuppeteerBrowserSingleton {
     );
 
     console.log('🆕 [PUPPETEER] Creating new browser instance');
+    
+    // Build launch args with proxy if configured
+    const launchArgs = [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-accelerated-2d-canvas',
+      '--no-first-run',
+      '--no-zygote',
+      '--disable-gpu',
+    ];
+
+    // Add proxy to launch args if configured
+    if (this.currentProxy) {
+      const proxyUrl = this.formatProxyUrl(this.currentProxy);
+      if (proxyUrl) {
+        launchArgs.push(`--proxy-server=${proxyUrl}`);
+        console.log(`🌐 [PUPPETEER] Browser launching with proxy: ${this.currentProxy.split(':')[0]}:${this.currentProxy.split(':')[1]}`);
+        this.launchedWithProxy = this.currentProxy;
+      } else {
+        console.warn('⚠️ [PUPPETEER] Invalid proxy configuration, launching without proxy');
+        this.launchedWithProxy = null;
+      }
+    } else {
+      this.launchedWithProxy = null;
+    }
+
     this.browserInstance = await puppeteerExtra.launch({
       headless: false,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
-        '--disable-gpu',
-      ],
+      // executablePath: process.env.CHROME_PATH || '/usr/bin/chromium',
+      args: launchArgs,
     });
 
     if (this.browserInstance) {
@@ -48,6 +89,7 @@ export class PuppeteerBrowserSingleton {
         this.browserInstance = null;
         this.pages = [];
         this.pageIndex = 0;
+        this.launchedWithProxy = null;
       });
       console.log('✅ [PUPPETEER] Browser instance created successfully');
     }
@@ -69,7 +111,7 @@ export class PuppeteerBrowserSingleton {
     } else {
       console.log(`🆕 [PUPPETEER] Creating page ${nextIndex + 1} on demand...`);
       const page = await browser.newPage();
-      await page.setViewport({ width: 1280, height: 1080 });
+      await page.setViewport({ width: 1440, height: 1280 });
 
       page.on('close', () => {
         console.log(`🔌 [PUPPETEER] Page ${nextIndex + 1} closed`);
@@ -95,7 +137,7 @@ export class PuppeteerBrowserSingleton {
 
     console.log('🆕 [PUPPETEER] Creating a fresh page...');
     const page = await browser.newPage();
-    await page.setViewport({ width: 1280, height: 1080 });
+    await page.setViewport({ width: 1440, height: 1280 });
     console.log('✅ [PUPPETEER] Fresh page created');
     return page;
   }
@@ -107,7 +149,22 @@ export class PuppeteerBrowserSingleton {
       this.browserInstance = null;
       this.pages = [];
       this.pageIndex = 0;
+      this.currentProxy = null;
+      this.launchedWithProxy = null;
       console.log('✅ [PUPPETEER] Browser instance closed');
     }
+  }
+
+  private static formatProxyUrl(proxy: string): string {
+    const parts = proxy.split(':');
+    if (parts.length !== 4) {
+      console.error('❌ [PUPPETEER] Invalid proxy format. Expected IP:PORT:USERNAME:PASSWORD');
+      return '';
+    }
+    const ip = parts[0];
+    const port = parts[1];
+    const username = encodeURIComponent(parts[2]);
+    const password = encodeURIComponent(parts[3]);
+    return `http://${username}:${password}@${ip}:${port}`;
   }
 }
