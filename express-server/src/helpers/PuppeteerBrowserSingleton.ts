@@ -5,6 +5,12 @@ import RecaptchaPlugin from 'puppeteer-extra-plugin-recaptcha';
 
 puppeteerExtra.use(StealthPlugin());
 
+const PROXY_URL = process.env.PROXY_URL || 'http://104.253.212.63:5473';
+const PROXY_CREDENTIALS = {
+  username: process.env.PROXY_USERNAME ?? '',
+  password: process.env.PROXY_PASSWORD ?? '',
+};
+
 export class PuppeteerBrowserSingleton {
   private static browserInstance: Browser | null = null;
   private static pages: Page[] = [];
@@ -38,6 +44,7 @@ export class PuppeteerBrowserSingleton {
       '--no-first-run',
       '--no-zygote',
       '--disable-gpu',
+      `--proxy-server=${PROXY_URL}`,
     ];
 
     this.browserInstance = await puppeteerExtra.launch({
@@ -73,6 +80,7 @@ export class PuppeteerBrowserSingleton {
     } else {
       console.log(`🆕 [PUPPETEER] Creating page ${nextIndex + 1} on demand...`);
       const page = await browser.newPage();
+      await page.authenticate(PROXY_CREDENTIALS);
       await page.setViewport({ width: 1440, height: 1280 });
 
       page.on('close', () => {
@@ -99,6 +107,7 @@ export class PuppeteerBrowserSingleton {
 
     console.log('🆕 [PUPPETEER] Creating a fresh page...');
     const page = await browser.newPage();
+    await page.authenticate(PROXY_CREDENTIALS);
     await page.setViewport({ width: 1440, height: 1280 });
     console.log('✅ [PUPPETEER] Fresh page created');
     return page;
