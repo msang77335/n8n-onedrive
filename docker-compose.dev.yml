@@ -55,6 +55,7 @@ services:
     ports:
       - "5001:5001"
     networks:
+      network1:
       automation-net:
         aliases:
           - captcha-solver
