@@ -1,5 +1,4 @@
 import { PuppeteerBrowserSingleton } from '../PuppeteerBrowserSingleton';
-import { ProxyManager } from '../ProxyManager';
 import { CheckShop, ScreenshotResult, ShopSiteEnum } from '.';
 import { solveDragCaptcha } from './captchaDragSolver';
 import { Page } from 'puppeteer';
@@ -37,16 +36,8 @@ export class TiktokCheckShop extends CheckShop {
   }
 
   async screenshot(url: string): Promise<ScreenshotResult> {
-    const proxyManager = ProxyManager.getInstance();
-
     for (let attempt = 1; attempt <= TiktokCheckShop.MAX_RETRIES; attempt++) {
-      const proxy = proxyManager.getNextProxy();
-      if (proxy) {
-        console.log(`🌐 [TIKTOK CHECK SHOP] Attempt ${attempt}/${TiktokCheckShop.MAX_RETRIES} using proxy: ${proxy.split(':')[0]}:${proxy.split(':')[1]}`);
-        PuppeteerBrowserSingleton.setProxy(proxy);
-      } else {
-        console.warn(`⚠️ [TIKTOK CHECK SHOP] Attempt ${attempt}/${TiktokCheckShop.MAX_RETRIES} - no proxy available`);
-      }
+      console.log(`🔄 [TIKTOK CHECK SHOP] Attempt ${attempt}/${TiktokCheckShop.MAX_RETRIES}`);
 
       const page = await PuppeteerBrowserSingleton.newPage();
       if (!page) throw new Error('Page instance is not available');
@@ -81,7 +72,6 @@ export class TiktokCheckShop extends CheckShop {
         const is404 = await this.is404OrNotFound(page);
         if (is404 && attempt < TiktokCheckShop.MAX_RETRIES) {
           console.warn(`🔁 [TIKTOK CHECK SHOP] 404/Not found on attempt ${attempt}, retrying with new proxy...`);
-          await PuppeteerBrowserSingleton.close();
           continue;
         }
 
