@@ -89,37 +89,41 @@ const initializeProxyManager = async () => {
 };
 
 // Start server
-const server = app.listen(PORT, async () => {
-  console.log(`🚀 Server is running on http://localhost:${PORT}`);
-  console.log(`📊 Health check available at http://localhost:${PORT}/health`);
-  console.log(`🔗 API endpoints available at http://localhost:${PORT}${process.env.API_PREFIX || '/api/v1'}`);
-  
-  // Initialize proxy manager after server starts
+const startServer = async () => {
+  // Initialize proxy manager BEFORE accepting requests to avoid race conditions
   await initializeProxyManager();
-});
 
-// Set server timeout to 5 minutes
-server.setTimeout(300000);
-
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-  console.log('🛑 SIGTERM signal received: closing HTTP server');
-  server.close(async () => {
-    console.log('HTTP server closed');
-    const proxyManager = ProxyManager.getInstance();
-    await proxyManager.shutdown();
-    process.exit(0);
+  const server = app.listen(PORT, () => {
+    console.log(`🚀 Server is running on http://localhost:${PORT}`);
+    console.log(`📊 Health check available at http://localhost:${PORT}/health`);
+    console.log(`🔗 API endpoints available at http://localhost:${PORT}${process.env.API_PREFIX || '/api/v1'}`);
   });
-});
 
-process.on('SIGINT', async () => {
-  console.log('🛑 SIGINT signal received: closing HTTP server');
-  server.close(async () => {
-    console.log('HTTP server closed');
-    const proxyManager = ProxyManager.getInstance();
-    await proxyManager.shutdown();
-    process.exit(0);
+  // Set server timeout to 5 minutes
+  server.setTimeout(300000);
+
+  // Graceful shutdown
+  process.on('SIGTERM', async () => {
+    console.log('🛑 SIGTERM signal received: closing HTTP server');
+    server.close(async () => {
+      console.log('HTTP server closed');
+      const proxyManager = ProxyManager.getInstance();
+      await proxyManager.shutdown();
+      process.exit(0);
+    });
   });
-});
+
+  process.on('SIGINT', async () => {
+    console.log('🛑 SIGINT signal received: closing HTTP server');
+    server.close(async () => {
+      console.log('HTTP server closed');
+      const proxyManager = ProxyManager.getInstance();
+      await proxyManager.shutdown();
+      process.exit(0);
+    });
+  });
+};
+
+startServer();
 
 export default app;

@@ -6,6 +6,7 @@ import { Page } from 'puppeteer';
 
 export class TiktokCheckShop extends CheckShop {
   readonly site = ShopSiteEnum.Tiktok;
+  private static readonly MAX_RETRIES = 3;
 
   matches(url: string): boolean {
     return url.toUpperCase().includes('TIKTOK');
@@ -37,54 +38,64 @@ export class TiktokCheckShop extends CheckShop {
 
   async screenshot(url: string): Promise<ScreenshotResult> {
     const proxyManager = ProxyManager.getInstance();
-    const proxy = proxyManager.getNextProxy();
-    
-    if (proxy) {
-      console.log(`🌐 [TIKTOK CHECK SHOP] Using proxy: ${proxy.split(':')[0]}:${proxy.split(':')[1]}`);
-      // Set proxy for the next browser instance
-      PuppeteerBrowserSingleton.setProxy(proxy);
-    }
-    
-    const browser = await PuppeteerBrowserSingleton.getInstance();
-    if (!browser) throw new Error('Browser instance is not available');
-    
-    const page = await browser.newPage();
 
-    let productId = this.detectProductId(url);
-    try {
-      if (productId) {
-        await page.goto(`https://shop.tiktok.com/vn/pdp/${productId}`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    for (let attempt = 1; attempt <= TiktokCheckShop.MAX_RETRIES; attempt++) {
+      const proxy = proxyManager.getNextProxy();
+      if (proxy) {
+        console.log(`🌐 [TIKTOK CHECK SHOP] Attempt ${attempt}/${TiktokCheckShop.MAX_RETRIES} using proxy: ${proxy.split(':')[0]}:${proxy.split(':')[1]}`);
+        PuppeteerBrowserSingleton.setProxy(proxy);
       } else {
-        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        console.warn(`⚠️ [TIKTOK CHECK SHOP] Attempt ${attempt}/${TiktokCheckShop.MAX_RETRIES} - no proxy available`);
+      }
 
-        await new Promise<void>(r => setTimeout(r, 5000));
+      const page = await PuppeteerBrowserSingleton.newPage();
+      if (!page) throw new Error('Page instance is not available');
 
-        const currentUrl = page.url();
-        productId = this.detectProductId(currentUrl);
+      let productId = this.detectProductId(url);
+      try {
         if (productId) {
-          console.log(`🔍 [TIKTOK CHECK SHOP] Detected product ID ${productId} after navigation, going to normalized URL...`);
           await page.goto(`https://shop.tiktok.com/vn/pdp/${productId}`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        } else {
+          await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+
+          await new Promise<void>(r => setTimeout(r, 5000));
+
+          const currentUrl = page.url();
+          productId = this.detectProductId(currentUrl);
+          if (productId) {
+            console.log(`🔍 [TIKTOK CHECK SHOP] Detected product ID ${productId} after navigation, going to normalized URL...`);
+            await page.goto(`https://shop.tiktok.com/vn/pdp/${productId}`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+          }
         }
+
+        if (productId) {
+          console.log(`⏱️ [TIKTOK CHECK SHOP] Waiting 10000 ms after load...`);
+          await new Promise<void>(r => setTimeout(r, 10000));
+
+          await this.solveCaptchaIfNeeded(page);
+        }
+
+        const shopTile = await this.getShopTitle(page);
+        console.log(`🏪 [TIKTOK CHECK SHOP] Shop title: ${shopTile}`);
+
+        const is404 = await this.is404OrNotFound(page);
+        if (is404 && attempt < TiktokCheckShop.MAX_RETRIES) {
+          console.warn(`🔁 [TIKTOK CHECK SHOP] 404/Not found on attempt ${attempt}, retrying with new proxy...`);
+          await PuppeteerBrowserSingleton.close();
+          continue;
+        }
+
+        const isValidShop = await this.checkValidShop(page);
+        const buffer = await page.screenshot({ fullPage: true }) as Buffer;
+        const status = isValidShop ? 'AVAILABLE' : 'UNAVAILABLE';
+
+        return { site: this.site, status, shopTile, screenshot: buffer };
+      } finally {
+        await page.close();
       }
-
-      if (productId) {
-        console.log(`⏱️ [TIKTOK CHECK SHOP] Waiting 10000 ms after load...`);
-        await new Promise<void>(r => setTimeout(r, 10000));
-
-        await this.solveCaptchaIfNeeded(page);
-      }
-
-      const shopTile = await this.getShopTitle(page);
-      console.log(`🏪 [TIKTOK CHECK SHOP] Shop title: ${shopTile}`);
-
-      const isValidShop = await this.checkValidShop(page);
-      const buffer = await page.screenshot({ fullPage: true }) as Buffer;
-      const status = isValidShop ? 'AVAILABLE' : 'UNAVAILABLE';
-
-      return { site: this.site, status, shopTile, screenshot: buffer };
-    } finally {
-      await page.close();
     }
+
+    throw new Error('Failed after max retries');
   }
 
   private async solveCaptchaIfNeeded(page: Page): Promise<void> {
@@ -146,18 +157,30 @@ export class TiktokCheckShop extends CheckShop {
     return await page.title();
   }
 
+  private async is404OrNotFound(page: Page): Promise<boolean> {
+    return page.evaluate(() => {
+      const doc = document;
+      if (doc.querySelector('[class*="not-found"]')) return true;
+      const bodyText = doc.body?.innerText || '';
+      if (bodyText.includes('404')) return true;
+      if (bodyText.includes('Not Found')) return true;
+      if (bodyText.includes('Không tìm thấy')) return true;
+      return false;
+    });
+  }
+
   private async checkValidShop(page: Page): Promise<boolean> {
     const isErrorPage = await page.evaluate(() => {
       const doc = document;
       // Check for error indicators
       if (doc.querySelector('[class*="error"]')) return true;
       if (doc.querySelector('[class*="not-found"]')) return true;
-      
+
       // Check for specific error messages
       const bodyText = doc.body?.innerText || '';
       if (bodyText.includes('Product not available in this country or region')) return true;
       if (bodyText.includes('Please try again')) return true;
-      
+
       return false;
     });
 
