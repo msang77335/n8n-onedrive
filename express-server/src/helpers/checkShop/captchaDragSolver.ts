@@ -235,7 +235,7 @@ async function callResolveCaptchaApi(
   puzzleBase64: string,
   pieceBase64: string,
 ): Promise<number | null> {
-  const url = 'http://localhost:5001/solve/puzzle'
+  const url = 'http://captcha-solver:5001/solve/puzzle'
   console.log(`🌐 [CAPTCHA DRAG] Calling Resolve Captcha API...`);
 
   try {

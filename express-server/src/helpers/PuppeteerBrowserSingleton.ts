@@ -9,7 +9,7 @@ export class PuppeteerBrowserSingleton {
   private static browserInstance: Browser | null = null;
   private static pages: Page[] = [];
   private static pageIndex: number = 0;
-  private static readonly MAX_PAGES = 5;
+  private static readonly MAX_PAGES = 3;
   private static currentProxy: string | null = null;
   private static launchedWithProxy: string | null = null;
 
@@ -79,7 +79,7 @@ export class PuppeteerBrowserSingleton {
 
     this.browserInstance = await puppeteerExtra.launch({
       headless: false,
-      // executablePath: process.env.CHROME_PATH || '/usr/bin/chromium',
+      executablePath: process.env.CHROME_PATH || '/usr/bin/chromium',
       args: launchArgs,
     });
 
