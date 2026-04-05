@@ -8,6 +8,7 @@ services:
     volumes:
       - n8n_data:/home/node/.n8n
     networks:
+      network1:
       automation-net:
         aliases:
           - automation
