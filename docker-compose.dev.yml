@@ -3,8 +3,8 @@ version: '3.8'
 services:
   n8n:
     image: docker.n8n.io/n8nio/n8n
-    ports:
-      - "5678:5678"
+    # ports:
+    #   - "5678:5678"
     volumes:
       - n8n_data:/home/node/.n8n
     networks:
@@ -25,8 +25,8 @@ services:
     build:
       context: ./express-server
       dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
+      # ports:
+      #   - "8000:8000"
     networks:
       network1:
       automation-net:
@@ -53,8 +53,8 @@ services:
     build:
       context: ./buzze-resolve-captcha
       dockerfile: Dockerfile
-    ports:
-      - "5001:5001"
+    # ports:
+    #   - "5001:5001"
     networks:
       network1:
       automation-net:
