@@ -59,12 +59,10 @@ export class TiktokCheckShop extends CheckShop {
           }
         }
 
-        if (productId) {
-          console.log(`⏱️ [TIKTOK CHECK SHOP] Waiting 10000 ms after load...`);
-          await new Promise<void>(r => setTimeout(r, 10000));
+        console.log(`⏱️ [TIKTOK CHECK SHOP] Waiting 10000 ms after load...`);
+        await new Promise<void>(r => setTimeout(r, 10000));
 
-          await this.solveCaptchaIfNeeded(page);
-        }
+        await this.solveCaptchaIfNeeded(page);
 
         const shopTile = await this.getShopTitle(page);
         console.log(`🏪 [TIKTOK CHECK SHOP] Shop title: ${shopTile}`);
