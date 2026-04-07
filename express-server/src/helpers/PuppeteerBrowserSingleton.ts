@@ -48,7 +48,7 @@ export class PuppeteerBrowserSingleton {
     ];
 
     this.browserInstance = await puppeteerExtra.launch({
-      headless: false,
+      headless: true,
       executablePath: process.env.CHROME_PATH || '/usr/bin/chromium',
       args: launchArgs,
     });
