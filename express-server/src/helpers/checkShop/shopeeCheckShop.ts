@@ -651,9 +651,13 @@ export class ShopeeCheckShop extends CheckShop {
     let text = '';
     try {
       const body = await response.body();
-      if (response.headers()['content-type']?.includes('text/html') && body) {
+      const contentType = response.headers()['content-type'] || '';
+      console.log(`📋 [SHOPEE RESPONSE] Content-Type: ${contentType}, Has body: ${!!body}`);
+      if (contentType.includes('text/html') && body) {
         console.log(`📄 [SHOPEE RESPONSE] Capturing HTML response from ${responseUrl} with status ${status}`);
         text = await response.text();
+      } else {
+        console.log(`⚠️ [SHOPEE RESPONSE] Skipping non-HTML response: ${contentType}`);
       }
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
@@ -662,14 +666,27 @@ export class ShopeeCheckShop extends CheckShop {
       }
     }
 
-    if (!text) return;
+    if (!text) {
+      console.log(`⚠️ [SHOPEE RESPONSE] Response text is empty for ${responseUrl}`);
+      return;
+    }
 
-    if (!this.isValidHtmlResponse(text, status, responseUrl, url)) return;
+    console.log(`📊 [SHOPEE RESPONSE DEBUG] Text length: ${text.length}, Contains shopee marker: ${text.includes('text/shopee-short-url-checked')}, URL: ${responseUrl}`);
 
+    if (!this.isValidHtmlResponse(text, status, responseUrl, url)) {
+      console.log(`⚠️ [SHOPEE RESPONSE] Response failed validation for ${responseUrl}`);
+      return;
+    }
+
+    console.log(`✅ [SHOPEE RESPONSE] Response passed validation, checking initialState...`);
     const innitialState = this.extractInitialState(text);
 
-    if (!innitialState) return;
+    if (!innitialState) {
+      console.log(`⚠️ [SHOPEE RESPONSE] No initialState found in response`);
+      return;
+    }
 
+    console.log(`✅ [SHOPEE RESPONSE] initialState found, saving HTML...`);
     fs.mkdirSync(outputDir, { recursive: true });
 
     await this.saveHtmlResponse(text, htmlFilePath);
