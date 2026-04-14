@@ -652,12 +652,9 @@ export class ShopeeCheckShop extends CheckShop {
     try {
       const body = await response.body();
       const contentType = response.headers()['content-type'] || '';
-      console.log(`📋 [SHOPEE RESPONSE] Content-Type: ${contentType}, Has body: ${!!body}`);
       if (contentType.includes('text/html') && body) {
         console.log(`📄 [SHOPEE RESPONSE] Capturing HTML response from ${responseUrl} with status ${status}`);
         text = await response.text();
-      } else {
-        console.log(`⚠️ [SHOPEE RESPONSE] Skipping non-HTML response: ${contentType}`);
       }
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : String(e);
@@ -667,7 +664,6 @@ export class ShopeeCheckShop extends CheckShop {
     }
 
     if (!text) {
-      console.log(`⚠️ [SHOPEE RESPONSE] Response text is empty for ${responseUrl}`);
       return;
     }
 
