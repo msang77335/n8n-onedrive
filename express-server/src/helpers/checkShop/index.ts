@@ -20,12 +20,14 @@ export abstract class CheckShop {
 }
 
 export { LazadaCheckShop } from './lazadaCheckShop';
+export { ShopeeCheckShop } from './shopeeCheckShop';
 export { TiktokCheckShop } from './tiktokCheckShop';
 
 import { LazadaCheckShop } from './lazadaCheckShop';
+import { ShopeeCheckShop } from './shopeeCheckShop';
 import { TiktokCheckShop } from './tiktokCheckShop';
 
-const shopCheckers: CheckShop[] = [new LazadaCheckShop(), new TiktokCheckShop()];
+const shopCheckers: CheckShop[] = [new LazadaCheckShop(), new TiktokCheckShop(), new ShopeeCheckShop()];
 
 export function checkShop(url: string): CheckShop | null {
   return shopCheckers.find((checker) => checker.matches(url)) ?? null;
