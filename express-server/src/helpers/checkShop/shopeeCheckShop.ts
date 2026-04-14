@@ -620,6 +620,9 @@ export class ShopeeCheckShop extends CheckShop {
   }
 
   private verifyHtmlContent(html: string): boolean {
+    if(html.includes("Sản phẩm này không tồn tại")) {
+      return false;
+    }
     const initialState = this.extractInitialState(html);
     if (!initialState) {
       console.log(`⚠️ [SHOPEE VERIFY] No initialState found in HTML`);
@@ -751,14 +754,6 @@ export class ShopeeCheckShop extends CheckShop {
       console.log(`🌐 [SHOPEE CHECK SHOP] Navigating to ${normalizedUrl}...`);
       await page.goto(normalizedUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
-      // Xử lý trường hợp shop không tồn tại ngay sau khi tải trang
-      await page.evaluate(() => {
-        const pageText = document.body.innerText;
-        if (pageText.includes('Sản phẩm này không tồn tại')) {
-          window.stop();
-        }
-      });
-
       // Chờ thêm 15 giây để đảm bảo tất cả nội dung động được tải
       await this.clickLanguageButton(page);
       await new Promise<void>(r => setTimeout(r, 15000));
@@ -768,11 +763,11 @@ export class ShopeeCheckShop extends CheckShop {
       if (!isValidShop) {
         console.log(`⚠️ [SHOPEE CHECK SHOP] Initial shop validation failed, checking for saved HTML file...`);
         const buffer = await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
-        return { site: this.site, status: "UNAVAILABLE", screenshot: buffer };
+        return { site: this.site, status: "UNAVAILABLE", screenshot: buffer, shopTile: 'N/A' };
       }
 
       let buffer: Buffer;
-      let shopTile: string | undefined = undefined;
+      let shopTile: string | undefined = 'N/A';
 
       if (fs.existsSync(htmlFilePath)) {
         const htmlFileStats = fs.statSync(htmlFilePath);
