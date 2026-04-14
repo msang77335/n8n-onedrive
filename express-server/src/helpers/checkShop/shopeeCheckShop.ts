@@ -3,7 +3,8 @@ import { Page, Response } from 'playwright';
 import { CheckShop, ScreenshotResult, ShopSiteEnum } from '.';
 import { PlaywrightBrowserSingleton } from '../PlaywrightBrowserSingleton';
 
-const outputDir = `${process.cwd()}/output`;
+const outputDir = process.env.OUTPUT_DIR || `${process.cwd()}/output`;
+const templatesDir = process.env.TEMPLATES_DIR || `${process.cwd()}/templates`;
 const htmlFilePath = `${outputDir}/shopee.html`;
 
 const defaultSearchSuggestions = `
@@ -63,6 +64,8 @@ export class ShopeeCheckShop extends CheckShop {
   private async saveHtmlResponse(html: string, filePath: string): Promise<void> {
     try {
       const cleanedHtml = this.removeScriptsFromHtml(html);
+      const dir = filePath.substring(0, filePath.lastIndexOf('/'));
+      fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(filePath, cleanedHtml);
       console.log(`💾 [SHOPEE HTML SAVED] File saved to: ${filePath}`);
     } catch (e) {
@@ -103,7 +106,7 @@ export class ShopeeCheckShop extends CheckShop {
     if (!page) return undefined;
 
     try {
-      const htmlPath = shopInfo?.data?.is_official_shop ? `${process.cwd()}/templates/shopee-mall-template.html` : `${process.cwd()}/templates/shopee-shop-template.html`;
+      const htmlPath = shopInfo?.data?.is_official_shop ? `${templatesDir}/shopee-mall-template.html` : `${templatesDir}/shopee-shop-template.html`;
       const htmlTemplate = fs.readFileSync(htmlPath, 'utf-8');
       const filledHtml = this.fillShopInfoInTemplate(htmlTemplate, shopInfo, searchSuggestions, shopCategories, shopItems);
       page.setContent(filledHtml, { waitUntil: 'domcontentloaded' });

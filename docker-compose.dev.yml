@@ -27,6 +27,8 @@ services:
       dockerfile: Dockerfile
     # ports:
     #   - "8000:8000"
+    volumes:
+      - express_output:/app/output
     networks:
       network1:
       automation-net:
@@ -44,6 +46,8 @@ services:
       - PROXY_URL=${PROXY_URL}
       - PROXY_USERNAME=${PROXY_USERNAME}
       - PROXY_PASSWORD=${PROXY_PASSWORD}
+      - OUTPUT_DIR=/app/output
+      - TEMPLATES_DIR=/app/templates
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:8000/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1) })"]
@@ -77,3 +81,4 @@ networks:
 
 volumes:
   n8n_data:
+  express_output:
