@@ -645,7 +645,6 @@ export class ShopeeCheckShop extends CheckShop {
   private async handlePageResponse(response: Response, url: string) {
     const responseUrl = response.url();
     const status = response.status();
-    console.log("📥 [SHOPEE RESPONSE] Intercepted response from: " + responseUrl + " with status: " + status);
     // Skip redirect and non-successful responses
     if (status < 200 || status >= 400) return;
 
@@ -653,6 +652,7 @@ export class ShopeeCheckShop extends CheckShop {
     try {
       const body = await response.body();
       if (response.headers()['content-type']?.includes('text/html') && body) {
+        console.log(`📄 [SHOPEE RESPONSE] Capturing HTML response from ${responseUrl} with status ${status}`);
         text = await response.text();
       }
     } catch (e) {
