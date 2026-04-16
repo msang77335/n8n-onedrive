@@ -73,31 +73,6 @@ export class ShopeeCheckShop extends CheckShop {
     }
   }
 
-  private async captureScreenshotItemFromHtml(htmlPath: string): Promise<{ buffer: Buffer, title: string } | undefined> {
-    const context = await PlaywrightBrowserSingleton.getContext();
-    if (!context) return undefined;
-
-    const page = await context.newPage();
-    if (!page) return undefined;
-
-    try {
-      await page.goto(`file://${htmlPath}`, { waitUntil: 'domcontentloaded', timeout: 30000 });
-      // Chờ thêm 10 giây để đảm bảo tất cả nội dung động được tải
-      console.log(`⏳ [SHOPEE SCREENSHOT] Waiting for 10 seconds to ensure all dynamic content is loaded`);
-      await new Promise<void>(r => setTimeout(r, 10000));
-      const buffer = await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
-      console.log(`📸 [SHOPEE SCREENSHOT] Screenshot captured from HTML file`);
-      const title = await page.title();
-
-      return { buffer, title };
-    } catch (e) {
-      console.log(`⚠️ [SHOPEE SCREENSHOT] Failed to capture screenshot from HTML: ${e}`);
-      return undefined;
-    } finally {
-      await page.close();
-    }
-  }
-
   private async captureScreenshotShopFromHtml(shopInfo: any, searchSuggestions: any[], shopCategories: any[], shopItems: any[]): Promise<{ buffer: Buffer, title: string } | undefined> {
     const context = await PlaywrightBrowserSingleton.getContext();
     if (!context) return undefined;
@@ -610,36 +585,106 @@ export class ShopeeCheckShop extends CheckShop {
     }
   }
 
-  private extractItems(initialState: Record<string, any>): Record<string, any> | undefined {
+  private extractShopIdFromHtml(html: string): string | undefined {
     try {
-      if (initialState?.item?.items) {
-        return initialState.item.items;
+      const initialState = this.extractInitialState(html);
+      if (!initialState) return undefined;
+
+      // Get the first item from items object
+      const itemsObject = initialState?.item?.items;
+      if (!itemsObject || typeof itemsObject !== 'object') {
+        return undefined;
       }
+
+      // Get the first key from items object
+      const firstItemKey = Object.keys(itemsObject)[0];
+      if (!firstItemKey) {
+        return undefined;
+      }
+
+      const shopId = itemsObject[firstItemKey]?.shop_id ?? '127318131712761238712';
+
+      if (shopId) {
+        console.log(`✅ [SHOPEE EXTRACT SHOP ID] Found shop ID: ${shopId}`);
+        return String(shopId);
+      }
+
+      console.log(`⚠️ [SHOPEE EXTRACT SHOP ID] Shop ID not found in first item`);
       return undefined;
     } catch (e) {
-      console.log(`⚠️ [SHOPEE EXTRACT ITEMS] Error extracting items: ${e}`);
+      console.log(`⚠️ [SHOPEE EXTRACT SHOP ID] Error extracting shop ID: ${e}`);
       return undefined;
     }
   }
 
-  private verifyHtmlContent(html: string): boolean {
-    if(html.includes("Sản phẩm này không tồn tại")) {
-      return false;
-    }
-    const initialState = this.extractInitialState(html);
-    if (!initialState) {
-      console.log(`⚠️ [SHOPEE VERIFY] No initialState found in HTML`);
-      return false;
-    }
+  private async fetchShopInfoFromPage(shopId: string): Promise<{
+    shopInfo?: Record<string, any>;
+    searchSuggestions: any[];
+    shopCategories: any[];
+    shopItems: any[];
+  }> {
+    const context = await PlaywrightBrowserSingleton.getContext();
+    if (!context) return { searchSuggestions: [], shopCategories: [], shopItems: [] };
 
-    const items = this.extractItems(initialState);
-    if (!items || Object.keys(items).length === 0) {
-      console.log(`⚠️ [SHOPEE VERIFY] No items found in initialState`);
-      return false;
-    }
+    const page = await context.newPage();
+    if (!page) return { searchSuggestions: [], shopCategories: [], shopItems: [] };
 
-    console.log(`✅ [SHOPEE VERIFY] HTML content is valid - initialState and items found`);
-    return true;
+    const dataContainer = {
+      searchSuggestions: [] as any[],
+      shopCategories: [] as any[],
+      shopItems: [] as any[],
+    };
+
+    try {
+      this.setupResponseHandlers(page, dataContainer, `https://shopee.vn/shop/${shopId}`);
+
+      const shopUrl = `https://shopee.vn/shop/${shopId}`;
+      console.log(`🌐 [SHOPEE FETCH SHOP] Navigating to ${shopUrl}...`);
+      await page.goto(shopUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      await new Promise<void>(r => setTimeout(r, 5000)); // Wait for API responses
+
+      return dataContainer;
+    } catch (e) {
+      console.log(`⚠️ [SHOPEE FETCH SHOP] Error fetching shop info: ${e}`);
+      return dataContainer;
+    } finally {
+      await page.close();
+    }
+  }
+
+  private async captureInvalidShop(): Promise<{ buffer?: Buffer; shopTile?: string }> {
+    const context = await PlaywrightBrowserSingleton.getContext();
+    if (!context) throw new Error('Cannot create Playwright context');
+    const page = await context.newPage();
+    if (!page) throw new Error('Cannot create Playwright page');
+
+    try {
+      await page.goto('https://shopee.vn/shop/127318131712761238712', { waitUntil: 'domcontentloaded', timeout: 30000 });
+
+      await new Promise<void>(r => setTimeout(r, 5000)); // Wait for page to load
+
+      const buffer = await page.screenshot({ fullPage: true });
+
+      return { buffer, shopTile: await page.title() };
+    } catch (e) {
+      console.log(`⚠️ [SHOPEE INVALID SHOP] Error capturing screenshot: ${e}`);
+      return {};
+    } finally {
+      await page.close();
+    }
+  }
+
+  private async extractHtmlFromResponse(response: Response): Promise<string> {
+    try {
+      const body = await response.body();
+      const contentType = response.headers()['content-type'] || '';
+      if (contentType.includes('text/html') && body) {
+        return await response.text();
+      }
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+    }
+    return '';
   }
 
   private async handlePageResponse(response: Response, url: string) {
@@ -648,35 +693,15 @@ export class ShopeeCheckShop extends CheckShop {
     // Skip redirect and non-successful responses
     if (status < 200 || status >= 400) return;
 
-    let text = '';
-    try {
-      const body = await response.body();
-      const contentType = response.headers()['content-type'] || '';
-      if (contentType.includes('text/html') && body) {
-        console.log(`📄 [SHOPEE RESPONSE] Capturing HTML response from ${responseUrl} with status ${status}`);
-        text = await response.text();
-      }
-    } catch (e) {
-      const errorMessage = e instanceof Error ? e.message : String(e);
-      if (!errorMessage.includes('Response body is unavailable')) {
-        console.log(`⚠️ [SHOPEE RESPONSE] Error reading response text: ${errorMessage}`);
-      }
-    }
-
-    if (!text) {
-      return;
-    }
-
-    console.log(`📊 [SHOPEE RESPONSE DEBUG] Text length: ${text.length}, Contains shopee marker: ${text.includes('text/shopee-short-url-checked')}, URL: ${responseUrl}`);
+    const text = await this.extractHtmlFromResponse(response);
+    if (!text) return;
 
     if (!this.isValidHtmlResponse(text, status, responseUrl, url)) {
-      console.log(`⚠️ [SHOPEE RESPONSE] Response failed validation for ${responseUrl}`);
       return;
     }
 
     console.log(`✅ [SHOPEE RESPONSE] Response passed validation, checking initialState...`);
     const innitialState = this.extractInitialState(text);
-
     if (!innitialState) {
       console.log(`⚠️ [SHOPEE RESPONSE] No initialState found in response`);
       return;
@@ -684,8 +709,88 @@ export class ShopeeCheckShop extends CheckShop {
 
     console.log(`✅ [SHOPEE RESPONSE] initialState found, saving HTML...`);
     fs.mkdirSync(outputDir, { recursive: true });
-
     await this.saveHtmlResponse(text, htmlFilePath);
+  }
+
+  private async handleShopInfoResponse(response: Response): Promise<Record<string, any> | undefined> {
+    try {
+      const shopInfoData = await response.json();
+      console.log(`🏪 [SHOPEE API] Shop info intercepted from page response`);
+      return shopInfoData;
+    } catch (e) {
+      console.log(`⚠️ [SHOPEE RESPONSE] Error parsing shop info JSON: ${e}`);
+      return undefined;
+    }
+  }
+
+  private async handleSearchSuggestionsResponse(response: Response): Promise<any[]> {
+    try {
+      const collectionsData = await response.json();
+      console.log(`📚 [SHOPEE API] Shop collections intercepted from page response`);
+      return collectionsData?.data?.queries || [];
+    } catch (e) {
+      console.log(`⚠️ [SHOPEE RESPONSE] Error parsing shop collections JSON: ${e}`);
+      return [];
+    }
+  }
+
+  private async handleCategoriesResponse(response: Response): Promise<any[]> {
+    try {
+      const categoriesData = await response.json();
+      console.log(`📚 [SHOPEE API] Shop categories intercepted from page response`);
+      return categoriesData?.data?.shop_categories || [];
+    } catch (e) {
+      console.log(`⚠️ [SHOPEE RESPONSE] Error parsing shop categories JSON: ${e}`);
+      return [];
+    }
+  }
+
+  private async handleSeoDataResponse(response: Response): Promise<any[]> {
+    try {
+      const seoData = await response.json();
+      console.log(`📚 [SHOPEE API] Shop SEO data intercepted from page response`);
+      return seoData?.data?.items || [];
+    } catch (e) {
+      console.log(`⚠️ [SHOPEE RESPONSE] Error parsing shop SEO data JSON: ${e}`);
+      return [];
+    }
+  }
+
+  private setupResponseHandlers(
+    page: Page,
+    dataContainer: {
+      shopInfo?: Record<string, any>;
+      searchSuggestions: any[];
+      shopCategories: any[];
+      shopItems: any[];
+    },
+    pageUrl: string
+  ): void {
+    page.on('response', async (response: Response) => {
+      try {
+        const responseUrl = response.url();
+        const status = response.status();
+
+        if (status !== 200) {
+          await this.handlePageResponse(response, pageUrl);
+          return;
+        }
+
+        if (responseUrl.includes('get_shop_base_v2')) {
+          dataContainer.shopInfo = await this.handleShopInfoResponse(response);
+        } else if (responseUrl.includes('search/search_suggestion')) {
+          dataContainer.searchSuggestions = await this.handleSearchSuggestionsResponse(response);
+        } else if (responseUrl.includes('shop/get_categories')) {
+          dataContainer.shopCategories = await this.handleCategoriesResponse(response);
+        } else if (responseUrl.includes('shop/get_shop_seo')) {
+          dataContainer.shopItems = await this.handleSeoDataResponse(response);
+        } else {
+          await this.handlePageResponse(response, pageUrl);
+        }
+      } catch (e) {
+        console.log(`⚠️ [SHOPEE RESPONSE] Error processing response: ${e}`);
+      }
+    });
   }
 
   async screenshot(url: string): Promise<ScreenshotResult> {
@@ -709,61 +814,15 @@ export class ShopeeCheckShop extends CheckShop {
     let shopCategories: any[] = [];
     let shopItems: any[] = [];
 
-    // Capture main page response HTML and API responses
-    page.on('response', async (response: Response) => {
-      try {
-        const responseUrl = response.url();
-        const status = response.status();
+    const dataContainer = {
+      shopInfo,
+      searchSuggestions,
+      shopCategories,
+      shopItems,
+    };
 
-        // Check if this is the shop info API response
-        if (responseUrl.includes('get_shop_base_v2') && status === 200) {
-          try {
-            const shopInfoData = await response.json();
-            console.log(`🏪 [SHOPEE API] Shop info intercepted from page response`);
-            shopInfo = shopInfoData;
-            return;
-          } catch (e) {
-            // Continue to check if it's HTML response
-            console.log(`⚠️ [SHOPEE RESPONSE] Error parsing shop info JSON: ${e}`);
-          }
-        }
-
-        if (responseUrl.includes('search/search_suggestion') && status === 200) {
-          try {
-            const collectionsData = await response.json();
-            console.log(`📚 [SHOPEE API] Shop collections intercepted from page response`);
-            searchSuggestions = collectionsData?.data?.queries || [];
-          } catch (e) {
-            console.log(`⚠️ [SHOPEE RESPONSE] Error parsing shop collections JSON: ${e}`);
-          }
-        }
-
-        if (responseUrl.includes('shop/get_categories') && status === 200) {
-          try {
-            const categoriesData = await response.json();
-            console.log(`📚 [SHOPEE API] Shop categories intercepted from page response`);
-            shopCategories = categoriesData?.data?.shop_categories || [];
-          } catch (e) {
-            console.log(`⚠️ [SHOPEE RESPONSE] Error parsing shop categories JSON: ${e}`);
-          }
-        }
-
-        if (responseUrl.includes('shop/get_shop_seo') && status === 200) {
-          try {
-            const seoData = await response.json();
-            console.log(`📚 [SHOPEE API] Shop SEO data intercepted from page response`);
-            shopItems = seoData?.data?.items || [];
-          } catch (e) {
-            console.log(`⚠️ [SHOPEE RESPONSE] Error parsing shop SEO data JSON: ${e}`);
-          }
-        }
-
-        // Xử lý case Product
-        await this.handlePageResponse(response, url);
-      } catch (e) {
-        console.log(`⚠️ [SHOPEE RESPONSE] Error processing response: ${e}`);
-      }
-    });
+    // Setup response handlers for all API responses
+    this.setupResponseHandlers(page, dataContainer, url);
 
     try {
       const normalizedUrl = this.normalizeUrl(url);
@@ -782,33 +841,73 @@ export class ShopeeCheckShop extends CheckShop {
         return { site: this.site, status: "UNAVAILABLE", screenshot: buffer, shopTile: 'N/A' };
       }
 
-      let buffer: Buffer;
-      let shopTile: string | undefined = 'N/A';
+      const { buffer, shopTile, status } = await this.prepareScreenshotBuffer(
+        page,
+        dataContainer.shopInfo,
+        dataContainer.searchSuggestions,
+        dataContainer.shopCategories,
+        dataContainer.shopItems
+      );
 
-      if (fs.existsSync(htmlFilePath)) {
-        const htmlFileStats = fs.statSync(htmlFilePath);
-        isValidShop = htmlFileStats.size > 0 && this.verifyHtmlContent(fs.readFileSync(htmlFilePath, 'utf-8'));
-        console.log(`📄 [SHOPEE CHECK SHOP] HTML file exists at: ${htmlFilePath}`);
-        const htmlScreenshot = await this.captureScreenshotItemFromHtml(htmlFilePath);
-        buffer = htmlScreenshot?.buffer || await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
-        shopTile = htmlScreenshot?.title || shopTile;
-      } else if (shopInfo) {
-        console.log(`📊 [SHOPEE CHECK SHOP] Shop info found from API response, using it to determine shop status`);
-        const htmlScreenshot = await this.captureScreenshotShopFromHtml(shopInfo, searchSuggestions, shopCategories, shopItems);
-        buffer = htmlScreenshot?.buffer || await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
-        shopTile = htmlScreenshot?.title || shopTile;
-      } else {
-        console.log(`📄 [SHOPEE CHECK SHOP] HTML file does not exist, capturing screenshot directly from page`);
-        buffer = await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
-      }
-
-      const status = (!isValidShop && !shopInfo?.data) ? "UNAVAILABLE" : "AVAILABLE";
       console.log(`✅ [SHOPEE CHECK SHOP] Shop status: ${status}, shopTile: ${shopTile || 'N/A'}`);
-
       return { site: this.site, status, shopTile, screenshot: buffer };
     } finally {
       await page.close();
     }
+  }
+
+  private async prepareScreenshotBuffer(
+    page: Page,
+    shopInfo: Record<string, any> | undefined,
+    searchSuggestions: any[],
+    shopCategories: any[],
+    shopItems: any[]
+  ): Promise<{ buffer: Buffer, shopTile: string, status: "AVAILABLE" | "UNAVAILABLE" }> {
+    let buffer: Buffer;
+    let shopTile: string = 'N/A';
+    let status: "AVAILABLE" | "UNAVAILABLE" = "UNAVAILABLE";
+
+    if (shopInfo?.data) {
+      console.log(`📊 [SHOPEE CHECK SHOP] Shop info found from API response, using it to determine shop status`);
+      const htmlScreenshot = await this.captureScreenshotShopFromHtml(shopInfo, searchSuggestions, shopCategories, shopItems);
+      buffer = htmlScreenshot?.buffer || await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
+      shopTile = htmlScreenshot?.title || shopTile;
+    } else if (!shopInfo?.data && fs.existsSync(htmlFilePath)) {
+      const htmlContent = fs.readFileSync(htmlFilePath, 'utf-8');
+      const shopId = this.extractShopIdFromHtml(htmlContent);
+
+      if (shopId && shopId !== '127318131712761238712') {
+        console.log(`📄 [SHOPEE CHECK SHOP] Found shop ID from saved HTML, fetching full shop info from page...`);
+        const fetchedData = await this.fetchShopInfoFromPage(shopId);
+
+        if (fetchedData.shopInfo?.data) {
+          const htmlScreenshot = await this.captureScreenshotShopFromHtml(
+            fetchedData.shopInfo,
+            fetchedData.searchSuggestions,
+            fetchedData.shopCategories,
+            fetchedData.shopItems
+          );
+          buffer = htmlScreenshot?.buffer || await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
+          shopTile = htmlScreenshot?.title || shopTile;
+          status = "AVAILABLE";
+        } else {
+          console.log(`⚠️ [SHOPEE CHECK SHOP] Failed to fetch full shop info, capturing screenshot directly from page`);
+          buffer = await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
+        }
+      } else if (shopId === '127318131712761238712') {
+        const invalidShop = await this.captureInvalidShop();
+        buffer = invalidShop?.buffer || await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
+        shopTile = invalidShop?.shopTile || 'N/A';
+      } else {
+        console.log(`⚠️ [SHOPEE CHECK SHOP] Could not extract valid shop ID from saved HTML`);
+        buffer = await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
+      }
+    } else {
+      console.log(`📄 [SHOPEE CHECK SHOP] HTML file does not exist, capturing screenshot directly from page`);
+      buffer = await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
+    }
+
+    return { buffer, shopTile, status };
   }
 
   private async clickLanguageButton(page: Page): Promise<void> {
