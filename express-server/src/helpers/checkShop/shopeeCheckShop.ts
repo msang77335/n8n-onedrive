@@ -108,11 +108,16 @@ export class ShopeeCheckShop extends CheckShop {
   }
 
   private formatPrice(price: number | string): string {
-    const numPrice = typeof price === 'string' ? Number.parseInt(price) : price;
-    if (!numPrice) return '0';
-    // Format: 12900000000 => 129.000 (divide by 100M, add thousand separator with dot)
-    const formattedPrice = (numPrice / 100000000).toFixed(0);
-    return formattedPrice.replaceAll(/\B(?=(\d{3})+(?!\d))/g, '.');
+    let numPrice = typeof price === 'string' ? Number.parseInt(price) : price;
+
+    // Handle invalid/missing values
+    if (!Number.isFinite(numPrice)) return '0';
+
+    // Format: 12900000 => 129.000 (divide by 100M for display unit with 3 decimals)
+    const formattedPrice = (numPrice / 100000000).toFixed(3);
+
+    // Add thousand separator with dot
+    return formattedPrice.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   }
 
   private formatJoinDate(timestamp: number | string): string {
@@ -422,12 +427,12 @@ export class ShopeeCheckShop extends CheckShop {
                                 class="font-medium mr-px text-xs/sp14">₫</span>
                             </div>
                           </div>
-                          <div
+                          ${item.discount ? `<div
                             class="text-shopee-primary font-medium bg-shopee-pink py-0.5 px-1 text-sp10/3 h-4 flex items-center rounded-[2px] font-[400] flex-shrink-0 mr-1"
                             bis_skin_checked="1">
                             <span data-testid="a11y-label"
                               aria-label="-${item.discount}"></span>-${item.discount}
-                          </div>
+                          </div>` : ''}
                         </div>
                       </div>
                       <div class="flex flex-col justify-between flex-grow"
@@ -902,6 +907,11 @@ export class ShopeeCheckShop extends CheckShop {
         console.log(`⚠️ [SHOPEE CHECK SHOP] Could not extract valid shop ID from saved HTML`);
         buffer = await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
       }
+    } else if (!shopInfo?.data && !fs.existsSync(htmlFilePath)) {
+      console.log(`⚠️ [SHOPEE CHECK SHOP] No shop info from API and no saved HTML file, capturing screenshot directly from page`);
+      const invalidShop = await this.captureInvalidShop();
+      buffer = invalidShop?.buffer || await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
+      shopTile = invalidShop?.shopTile || 'N/A';
     } else {
       console.log(`📄 [SHOPEE CHECK SHOP] HTML file does not exist, capturing screenshot directly from page`);
       buffer = await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
