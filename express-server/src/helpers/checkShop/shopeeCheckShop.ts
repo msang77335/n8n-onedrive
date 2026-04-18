@@ -834,6 +834,21 @@ export class ShopeeCheckShop extends CheckShop {
       console.log(`🌐 [SHOPEE CHECK SHOP] Navigating to ${normalizedUrl}...`);
       await page.goto(normalizedUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
+      const hasInvalidText = await page.evaluate(() => {
+        const bodyText = document.body.innerText;
+        const invalidText = bodyText.includes('Sản phẩm này không tồn tại');
+        if (invalidText) {
+          window.stop(); // Stop further loading to save resources if invalid text is found
+        }
+        return invalidText;
+      });
+
+      if (hasInvalidText) {
+        console.log(`⚠️ [SHOPEE CHECK SHOP] Invalid product text found, returning unavailable`);
+        const buffer = await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
+        return { site: this.site, status: "UNAVAILABLE", screenshot: buffer, shopTile: 'N/A' };
+      }
+
       // Chờ thêm 15 giây để đảm bảo tất cả nội dung động được tải
       await this.clickLanguageButton(page);
       await new Promise<void>(r => setTimeout(r, 15000));
