@@ -24,12 +24,30 @@ export class PlaywrightBrowserSingleton {
       })
     );
     console.log('🆕 [BROWSER] Creating new browser instance');
-    this.browserInstance = await firefox.launch({
+    
+    // Configure proxy if available
+    const launchOptions: any = {
       headless: false,
       args: [
         '--no-sandbox',
       ]
-    });
+    };
+
+    // Add proxy configuration
+    if (process.env.PROXY_URL) {
+      launchOptions.proxy = {
+        server: process.env.PROXY_URL,
+      };
+      
+      if (process.env.PROXY_USERNAME && process.env.PROXY_PASSWORD) {
+        launchOptions.proxy.username = process.env.PROXY_USERNAME;
+        launchOptions.proxy.password = process.env.PROXY_PASSWORD;
+      }
+      
+      console.log(`🔗 [BROWSER] Using proxy: ${process.env.PROXY_URL}`);
+    }
+
+    this.browserInstance = await firefox.launch(launchOptions);
     if (this.browserInstance) {
       this.browserInstance.on('disconnected', () => {
         console.log('🔌 [BROWSER] Browser disconnected');
