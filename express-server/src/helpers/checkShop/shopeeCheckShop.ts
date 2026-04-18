@@ -657,11 +657,24 @@ export class ShopeeCheckShop extends CheckShop {
     }
   }
 
-  private async captureInvalidShop(): Promise<{ buffer?: Buffer; shopTile?: string }> {
+  private async captureInvalidShop(block: boolean = false): Promise<{ buffer?: Buffer; shopTile?: string }> {
     const context = await PlaywrightBrowserSingleton.getContext();
     if (!context) throw new Error('Cannot create Playwright context');
     const page = await context.newPage();
     if (!page) throw new Error('Cannot create Playwright page');
+
+    if (block) {
+      try {
+        const htmlPath = `${templatesDir}/shopee-block-template.html`;
+        const htmlTemplate = fs.readFileSync(htmlPath, 'utf-8');
+        page.setContent(htmlTemplate, { waitUntil: 'domcontentloaded' });
+        const buffer = await page.screenshot({ fullPage: true });
+        await new Promise<void>(r => setTimeout(r, 5000)); // Wait for page to render
+        return { buffer, shopTile: await page.title() };
+      } catch (e) {
+        console.log(`⚠️ [SHOPEE BLOCK SHOP] Error blocking shop API: ${e}`);
+      }
+    }
 
     try {
       await page.goto('https://shopee.vn/shop/127318131712761238712', { waitUntil: 'domcontentloaded', timeout: 30000 });
@@ -849,9 +862,9 @@ export class ShopeeCheckShop extends CheckShop {
         return { site: this.site, status: "UNAVAILABLE", screenshot: buffer, shopTile: 'N/A' };
       }
 
-      // Chờ thêm 15 giây để đảm bảo tất cả nội dung động được tải
+      // Chờ thêm 10 giây để đảm bảo tất cả nội dung động được tải
       await this.clickLanguageButton(page);
-      await new Promise<void>(r => setTimeout(r, 15000));
+      await new Promise<void>(r => setTimeout(r, 10000));
 
       let isValidShop = await this.checkValidShop(page);
 
@@ -859,6 +872,14 @@ export class ShopeeCheckShop extends CheckShop {
         console.log(`⚠️ [SHOPEE CHECK SHOP] Initial shop validation failed, checking for saved HTML file...`);
         const buffer = await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
         return { site: this.site, status: "UNAVAILABLE", screenshot: buffer, shopTile: 'N/A' };
+      }
+
+      if (!dataContainer.shopItems?.length && shopInfo?.data?.account?.status === 2) {
+        const invalidShop = await this.captureInvalidShop(true);
+        const buffer = invalidShop?.buffer || await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
+        const shopTile = invalidShop?.shopTile || 'N/A';
+        console.log(`⚠️ [SHOPEE CHECK SHOP] Shop appears to be blocked, returning unavailable`);
+        return { site: this.site, status: "UNAVAILABLE", screenshot: buffer, shopTile };
       }
 
       const { buffer, shopTile, status } = await this.prepareScreenshotBuffer(
@@ -892,6 +913,7 @@ export class ShopeeCheckShop extends CheckShop {
       const htmlScreenshot = await this.captureScreenshotShopFromHtml(shopInfo, searchSuggestions, shopCategories, shopItems);
       buffer = htmlScreenshot?.buffer || await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
       shopTile = htmlScreenshot?.title || shopTile;
+      status = "AVAILABLE";
     } else if (!shopInfo?.data && fs.existsSync(htmlFilePath)) {
       const htmlContent = fs.readFileSync(htmlFilePath, 'utf-8');
       const shopId = this.extractShopIdFromHtml(htmlContent);
