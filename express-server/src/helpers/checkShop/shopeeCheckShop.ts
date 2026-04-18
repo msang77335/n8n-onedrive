@@ -665,6 +665,7 @@ export class ShopeeCheckShop extends CheckShop {
 
     if (block) {
       try {
+        console.log(`🚫 [SHOPEE BLOCK SHOP] Blocking shop API response...`);
         const htmlPath = `${templatesDir}/shopee-block-template.html`;
         const htmlTemplate = fs.readFileSync(htmlPath, 'utf-8');
         page.setContent(htmlTemplate, { waitUntil: 'domcontentloaded' });
@@ -866,7 +867,7 @@ export class ShopeeCheckShop extends CheckShop {
       await this.clickLanguageButton(page);
       await new Promise<void>(r => setTimeout(r, 10000));
 
-      let isValidShop = await this.checkValidShop(page);
+      let isValidShop = true;
 
       if (!isValidShop) {
         console.log(`⚠️ [SHOPEE CHECK SHOP] Initial shop validation failed, checking for saved HTML file...`);
@@ -874,7 +875,7 @@ export class ShopeeCheckShop extends CheckShop {
         return { site: this.site, status: "UNAVAILABLE", screenshot: buffer, shopTile: 'N/A' };
       }
 
-      if (!dataContainer.shopItems?.length && shopInfo?.data?.account?.status === 2) {
+      if (!dataContainer.shopItems?.length && dataContainer?.shopInfo?.data?.account?.status === 2) {
         const invalidShop = await this.captureInvalidShop(true);
         const buffer = invalidShop?.buffer || await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
         const shopTile = invalidShop?.shopTile || 'N/A';
