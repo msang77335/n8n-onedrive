@@ -852,7 +852,7 @@ export class ShopeeCheckShop extends CheckShop {
         const bodyText = document.body.innerText;
         const invalidText = bodyText.includes('Sản phẩm này không tồn tại');
         if (invalidText) {
-          await new Promise<void>(r => setTimeout(r, 200)); // Wait for 200 milliseconds to allow any potential loading to complete before stopping
+          await new Promise<void>(r => setTimeout(r, 50)); // Wait for 50 milliseconds to allow any potential loading to complete before stopping
           window.stop(); // Stop further loading to save resources if invalid text is found
         }
         return invalidText;
