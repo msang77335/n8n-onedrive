@@ -848,10 +848,11 @@ export class ShopeeCheckShop extends CheckShop {
       console.log(`🌐 [SHOPEE CHECK SHOP] Navigating to ${normalizedUrl}...`);
       await page.goto(normalizedUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
-      const hasInvalidText = await page.evaluate(() => {
+      const hasInvalidText = await page.evaluate(async () => {
         const bodyText = document.body.innerText;
         const invalidText = bodyText.includes('Sản phẩm này không tồn tại');
         if (invalidText) {
+          await new Promise<void>(r => setTimeout(r, 200)); // Wait for 200 milliseconds to allow any potential loading to complete before stopping
           window.stop(); // Stop further loading to save resources if invalid text is found
         }
         return invalidText;
