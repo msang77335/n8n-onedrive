@@ -663,27 +663,20 @@ export class ShopeeCheckShop extends CheckShop {
     const page = await context.newPage();
     if (!page) throw new Error('Cannot create Playwright page');
 
-    if (block) {
-      try {
+    try {
+      if (block) {
         console.log(`🚫 [SHOPEE BLOCK SHOP] Blocking shop API response...`);
         const htmlPath = `${templatesDir}/shopee-block-template.html`;
         const htmlTemplate = fs.readFileSync(htmlPath, 'utf-8');
-        page.setContent(htmlTemplate, { waitUntil: 'domcontentloaded' });
+        await page.setContent(htmlTemplate, { waitUntil: 'domcontentloaded' });
+        await new Promise<void>(r => setTimeout(r, 5000));
         const buffer = await page.screenshot({ fullPage: true });
-        await new Promise<void>(r => setTimeout(r, 5000)); // Wait for page to render
         return { buffer, shopTile: await page.title() };
-      } catch (e) {
-        console.log(`⚠️ [SHOPEE BLOCK SHOP] Error blocking shop API: ${e}`);
       }
-    }
 
-    try {
       await page.goto('https://shopee.vn/shop/127318131712761238712', { waitUntil: 'domcontentloaded', timeout: 30000 });
-
-      await new Promise<void>(r => setTimeout(r, 5000)); // Wait for page to load
-
+      await new Promise<void>(r => setTimeout(r, 5000));
       const buffer = await page.screenshot({ fullPage: true });
-
       return { buffer, shopTile: await page.title() };
     } catch (e) {
       console.log(`⚠️ [SHOPEE INVALID SHOP] Error capturing screenshot: ${e}`);
@@ -695,13 +688,11 @@ export class ShopeeCheckShop extends CheckShop {
 
   private async extractHtmlFromResponse(response: Response): Promise<string> {
     try {
-      const body = await response.body();
       const contentType = response.headers()['content-type'] || '';
-      if (contentType.includes('text/html') && body) {
-        return await response.text();
-      }
+      if (!contentType.includes('text/html')) return '';
+      return await response.text();
     } catch (e) {
-      const errorMessage = e instanceof Error ? e.message : String(e);
+      console.log(`⚠️ [SHOPEE RESPONSE] Error extracting HTML from response: ${e}`);
     }
     return '';
   }
@@ -868,7 +859,7 @@ export class ShopeeCheckShop extends CheckShop {
       await this.clickLanguageButton(page);
       await new Promise<void>(r => setTimeout(r, 10000));
 
-      let isValidShop = true;
+      let isValidShop = await this.checkValidShop(page);
 
       if (!isValidShop) {
         console.log(`⚠️ [SHOPEE CHECK SHOP] Initial shop validation failed, checking for saved HTML file...`);
@@ -876,7 +867,7 @@ export class ShopeeCheckShop extends CheckShop {
         return { site: this.site, status: "UNAVAILABLE", screenshot: buffer, shopTile: 'N/A' };
       }
 
-      if (!dataContainer.shopItems?.length && dataContainer?.shopInfo?.data?.account?.status === 2) {
+      if (!dataContainer.shopItems?.length) {
         const invalidShop = await this.captureInvalidShop(true);
         const buffer = invalidShop?.buffer || await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
         const shopTile = invalidShop?.shopTile || 'N/A';
