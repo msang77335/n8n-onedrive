@@ -854,10 +854,10 @@ export class ShopeeCheckShop extends CheckShop {
         const buffer = await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
         return { site: this.site, status: "UNAVAILABLE", screenshot: buffer, shopTile: 'N/A' };
       }
-
+      await new Promise<void>(r => setTimeout(r, 5000));
       // Chờ thêm 10 giây để đảm bảo tất cả nội dung động được tải
       await this.clickLanguageButton(page);
-      await new Promise<void>(r => setTimeout(r, 10000));
+      await new Promise<void>(r => setTimeout(r, 5000));
 
       let isValidShop = await this.checkValidShop(page);
 
@@ -954,7 +954,6 @@ export class ShopeeCheckShop extends CheckShop {
     try {
       await page.click('button:has-text("Tiếng Việt")', { timeout: 5000 });
       console.log(`🌐 [SHOPEE CHECK SHOP] Clicked language button`);
-      await new Promise<void>(r => setTimeout(r, 2000));
     } catch (e) {
       console.log(`⚠️ [SHOPEE CHECK SHOP] Error clicking language button: ${e}`);
     }
