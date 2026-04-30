@@ -24,7 +24,7 @@ export class LazadaCheckShop extends CheckShop {
       console.log(`🏪 [LAZADA CHECK SHOP] Page title: ${shopTile}`);
       const isValidShop = await this.checkValidShop(page);
 
-      const buffer = await page.screenshot({ fullPage: true });
+      const buffer = await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1280, height: 720 } });
       const status = isValidShop ? "AVAILABLE" : "UNAVAILABLE";
       
       return { site: this.site, status, shopTile, screenshot: buffer };
