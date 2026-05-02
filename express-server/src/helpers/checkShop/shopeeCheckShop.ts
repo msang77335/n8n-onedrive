@@ -557,6 +557,7 @@ export class ShopeeCheckShop extends CheckShop {
 
     return out;
   }
+  
   private isValidHtmlResponse(text: string, status: number, responseUrl: string, targetUrl: string): boolean {
     return status === 200 && text.includes('text/shopee-short-url-checked') &&
       (responseUrl.includes('shopee.vn') || responseUrl === targetUrl);
@@ -867,7 +868,8 @@ export class ShopeeCheckShop extends CheckShop {
         return { site: this.site, status: "UNAVAILABLE", screenshot: buffer, shopTile: 'N/A' };
       }
 
-      if (!dataContainer.shopItems?.length) {
+      const shopId = this.extractShopIdFromHtml(fs.existsSync(htmlFilePath) ? fs.readFileSync(htmlFilePath, 'utf-8') : '');
+      if (!dataContainer.shopItems?.length && !shopId) {
         const invalidShop = await this.captureInvalidShop(true);
         const buffer = invalidShop?.buffer || await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
         const shopTile = invalidShop?.shopTile || 'N/A';
