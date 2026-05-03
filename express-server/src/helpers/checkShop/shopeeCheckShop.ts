@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
-import { Page, Response } from 'playwright';
+import { HTTPResponse, Page } from 'puppeteer';
 import { CheckShop, ScreenshotResult, ShopSiteEnum } from '.';
-import { PlaywrightBrowserSingleton } from '../PlaywrightBrowserSingleton';
+import { PuppeteerBrowserSingleton } from '../PuppeteerBrowserSingleton';
 
 const outputDir = process.env.OUTPUT_DIR || `${process.cwd()}/output`;
 const templatesDir = process.env.TEMPLATES_DIR || `${process.cwd()}/templates`;
@@ -74,9 +74,8 @@ export class ShopeeCheckShop extends CheckShop {
   }
 
   private async captureScreenshotShopFromHtml(shopInfo: any, searchSuggestions: any[], shopCategories: any[], shopItems: any[]): Promise<{ buffer: Buffer, title: string } | undefined> {
-    const context = await PlaywrightBrowserSingleton.getContext();
-    if (!context) return undefined;
-    const page = await context.newPage();
+    const page = await PuppeteerBrowserSingleton.newPage();
+    if (!page) return undefined;
 
     try {
       const htmlPath = shopInfo?.data?.is_official_shop ? `${templatesDir}/shopee-mall-template.html` : `${templatesDir}/shopee-shop-template.html`;
@@ -86,7 +85,7 @@ export class ShopeeCheckShop extends CheckShop {
       // Chờ thêm 10 giây để đảm bảo tất cả nội dung động được tải
       console.log(`⏳ [SHOPEE SHOP HTML] Waiting for 10 seconds to ensure all dynamic content is loaded`);
       await new Promise<void>(r => setTimeout(r, 10000));
-      const buffer = await page.screenshot({ fullPage: true });
+      const buffer = await page.screenshot({ fullPage: true }) as Buffer;
       const title = shopInfo.data?.name || 'Shop';
       console.log(`📸 [SHOPEE SHOP HTML] Screenshot captured from shop info`);
       return { buffer, title };
@@ -627,9 +626,8 @@ export class ShopeeCheckShop extends CheckShop {
     shopCategories: any[];
     shopItems: any[];
   } | null> {
-    const context = await PlaywrightBrowserSingleton.getContext();
-    if (!context) return { searchSuggestions: [], shopCategories: [], shopItems: [] };
-    const page = await context.newPage();
+    const page = await PuppeteerBrowserSingleton.newPage();
+    if (!page) return { searchSuggestions: [], shopCategories: [], shopItems: [] };
 
     const dataContainer = {
       searchSuggestions: [] as any[],
@@ -660,9 +658,8 @@ export class ShopeeCheckShop extends CheckShop {
   }
 
   private async captureInvalidShop(block: boolean = false): Promise<{ buffer?: Buffer; shopTile?: string }> {
-    const context = await PlaywrightBrowserSingleton.getContext();
-    if (!context) throw new Error('Cannot create Playwright context');
-    const page = await context.newPage();
+    const page = await PuppeteerBrowserSingleton.newPage();
+    if (!page) throw new Error('Cannot create Puppeteer page');
 
     try {
       if (block) {
@@ -671,13 +668,13 @@ export class ShopeeCheckShop extends CheckShop {
         const htmlTemplate = fs.readFileSync(htmlPath, 'utf-8');
         await page.setContent(htmlTemplate, { waitUntil: 'domcontentloaded' });
         await new Promise<void>(r => setTimeout(r, 5000));
-        const buffer = await page.screenshot({ fullPage: true });
+        const buffer = await page.screenshot({ fullPage: true }) as Buffer;
         return { buffer, shopTile: await page.title() };
       }
 
       await page.goto('https://shopee.vn/shop/127318131712761238712', { waitUntil: 'domcontentloaded', timeout: 30000 });
       await new Promise<void>(r => setTimeout(r, 5000));
-      const buffer = await page.screenshot({ fullPage: true });
+      const buffer = await page.screenshot({ fullPage: true }) as Buffer;
       return { buffer, shopTile: await page.title() };
     } catch (e) {
       console.log(`⚠️ [SHOPEE INVALID SHOP] Error capturing screenshot: ${e}`);
@@ -688,7 +685,7 @@ export class ShopeeCheckShop extends CheckShop {
     }
   }
 
-  private async extractHtmlFromResponse(response: Response): Promise<string> {
+  private async extractHtmlFromResponse(response: HTTPResponse): Promise<string> {
     try {
       const contentType = response.headers()['content-type'] || '';
       if (!contentType.includes('text/html')) return '';
@@ -699,7 +696,7 @@ export class ShopeeCheckShop extends CheckShop {
     return '';
   }
 
-  private async handlePageResponse(response: Response, url: string) {
+  private async handlePageResponse(response: HTTPResponse, url: string) {
     const responseUrl = response.url();
     const status = response.status();
     // Skip redirect and non-successful responses
@@ -724,7 +721,7 @@ export class ShopeeCheckShop extends CheckShop {
     await this.saveHtmlResponse(text, htmlFilePath);
   }
 
-  private async handleShopInfoResponse(response: Response): Promise<Record<string, any> | undefined> {
+  private async handleShopInfoResponse(response: HTTPResponse): Promise<Record<string, any> | undefined> {
     try {
       const shopInfoData = await response.json();
       console.log(`🏪 [SHOPEE API] Shop info intercepted from page response`);
@@ -735,7 +732,7 @@ export class ShopeeCheckShop extends CheckShop {
     }
   }
 
-  private async handleSearchSuggestionsResponse(response: Response): Promise<any[]> {
+  private async handleSearchSuggestionsResponse(response: HTTPResponse): Promise<any[]> {
     try {
       const collectionsData = await response.json();
       console.log(`📚 [SHOPEE API] Shop collections intercepted from page response`);
@@ -746,7 +743,7 @@ export class ShopeeCheckShop extends CheckShop {
     }
   }
 
-  private async handleCategoriesResponse(response: Response): Promise<any[]> {
+  private async handleCategoriesResponse(response: HTTPResponse): Promise<any[]> {
     try {
       const categoriesData = await response.json();
       console.log(`📚 [SHOPEE API] Shop categories intercepted from page response`);
@@ -757,7 +754,7 @@ export class ShopeeCheckShop extends CheckShop {
     }
   }
 
-  private async handleSeoDataResponse(response: Response): Promise<any[]> {
+  private async handleSeoDataResponse(response: HTTPResponse): Promise<any[]> {
     try {
       const seoData = await response.json();
       console.log(`📚 [SHOPEE API] Shop SEO data intercepted from page response`);
@@ -774,11 +771,11 @@ export class ShopeeCheckShop extends CheckShop {
       shopInfo?: Record<string, any>;
       searchSuggestions: any[];
       shopCategories: any[];
-      shopItems: any[];
+      shopItems: any[] | null;
     },
     pageUrl: string
   ): void {
-    page.on('response', async (response: Response) => {
+    page.on('response', async (response: HTTPResponse) => {
       try {
         const responseUrl = response.url();
         const status = response.status();
@@ -795,7 +792,7 @@ export class ShopeeCheckShop extends CheckShop {
         } else if (responseUrl.includes('shop/get_categories')) {
           dataContainer.shopCategories = await this.handleCategoriesResponse(response);
         } else if (responseUrl.includes('shop/get_shop_seo')) {
-          dataContainer.shopItems = await this.handleSeoDataResponse(response);
+          dataContainer.shopItems = await this.handleSeoDataResponse(response) ?? [];
         } else {
           await this.handlePageResponse(response, pageUrl);
         }
@@ -806,9 +803,8 @@ export class ShopeeCheckShop extends CheckShop {
   }
 
   async screenshot(url: string): Promise<ScreenshotResult> {
-    const context = await PlaywrightBrowserSingleton.getContext();
-    if (!context) throw new Error('Cannot create Playwright context');
-    const page = await context.newPage();
+    const page = await PuppeteerBrowserSingleton.newPage();
+    if (!page) throw new Error('Cannot create Puppeteer page');
 
     // Delete existing file before saving new one
     try {
@@ -823,7 +819,7 @@ export class ShopeeCheckShop extends CheckShop {
     let shopInfo: Record<string, any> | undefined;
     let searchSuggestions: any[] = [];
     let shopCategories: any[] = [];
-    let shopItems: any[] = [];
+    let shopItems: any[] | null = null;
 
     const dataContainer = {
       shopInfo,
@@ -854,10 +850,8 @@ export class ShopeeCheckShop extends CheckShop {
 
       if (hasInvalidText) {
         console.log(`⚠️ [SHOPEE CHECK SHOP] Invalid product text found, returning unavailable`);
-        const buffer = await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
+        const buffer = await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } }) as Buffer;
         return { site: this.site, status: "UNAVAILABLE", screenshot: buffer, shopTile: 'N/A' };
-      } else {
-        await page.goto(normalizedUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
       }
       await new Promise<void>(r => setTimeout(r, 15000));
 
@@ -865,14 +859,14 @@ export class ShopeeCheckShop extends CheckShop {
 
       if (!isValidShop) {
         console.log(`⚠️ [SHOPEE CHECK SHOP] Initial shop validation failed, checking for saved HTML file...`);
-        const buffer = await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
+        const buffer = await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } }) as Buffer;
         return { site: this.site, status: "UNAVAILABLE", screenshot: buffer, shopTile: 'N/A' };
       }
 
       const shopId = this.extractShopIdFromHtml(fs.existsSync(htmlFilePath) ? fs.readFileSync(htmlFilePath, 'utf-8') : '');
-      if (!dataContainer?.shopInfo && !shopId) {
+      if (dataContainer?.shopItems === null && !shopId) {
         const invalidShop = await this.captureInvalidShop(true);
-        const buffer = invalidShop?.buffer || await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
+        const buffer = invalidShop?.buffer || await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } }) as Buffer;
         const shopTile = invalidShop?.shopTile || 'N/A';
         console.log(`⚠️ [SHOPEE CHECK SHOP] Shop appears to be blocked, returning unavailable`);
         return { site: this.site, status: "UNAVAILABLE", screenshot: buffer, shopTile };
@@ -898,7 +892,7 @@ export class ShopeeCheckShop extends CheckShop {
     shopInfo: Record<string, any> | undefined,
     searchSuggestions: any[],
     shopCategories: any[],
-    shopItems: any[]
+    shopItems: any[] | null,
   ): Promise<{ buffer: Buffer, shopTile: string, status: "AVAILABLE" | "UNAVAILABLE" }> {
     let buffer: Buffer;
     let shopTile: string = 'N/A';
@@ -906,8 +900,8 @@ export class ShopeeCheckShop extends CheckShop {
 
     if (shopInfo?.data) {
       console.log(`📊 [SHOPEE CHECK SHOP] Shop info found from API response, using it to determine shop status`);
-      const htmlScreenshot = await this.captureScreenshotShopFromHtml(shopInfo, searchSuggestions, shopCategories, shopItems);
-      buffer = htmlScreenshot?.buffer || await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
+      const htmlScreenshot = await this.captureScreenshotShopFromHtml(shopInfo, searchSuggestions, shopCategories, shopItems ?? []);
+      buffer = (htmlScreenshot?.buffer || await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } })) as Buffer;
       shopTile = htmlScreenshot?.title || shopTile;
       status = "AVAILABLE";
     } else if (!shopInfo?.data && fs.existsSync(htmlFilePath)) {
@@ -919,38 +913,38 @@ export class ShopeeCheckShop extends CheckShop {
         const fetchedData = await this.fetchShopInfoFromPage(shopId);
         if (fetchedData === null) {
           const invalidShop = await this.captureInvalidShop();
-          buffer = invalidShop?.buffer || await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
+          buffer = (invalidShop?.buffer || await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } })) as Buffer;
           shopTile = invalidShop?.shopTile || 'N/A';
         } else if (fetchedData.shopInfo?.data) {
           const htmlScreenshot = await this.captureScreenshotShopFromHtml(
             fetchedData.shopInfo,
             fetchedData.searchSuggestions,
             fetchedData.shopCategories,
-            fetchedData.shopItems
+            fetchedData.shopItems ?? []
           );
-          buffer = htmlScreenshot?.buffer || await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
+          buffer = (htmlScreenshot?.buffer || await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } })) as Buffer;
           shopTile = htmlScreenshot?.title || shopTile;
           status = "AVAILABLE";
         } else {
           console.log(`⚠️ [SHOPEE CHECK SHOP] Failed to fetch full shop info, capturing screenshot directly from page`);
-          buffer = await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
+          buffer = await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } }) as Buffer;
         }
       } else if (shopId === '127318131712761238712') {
         const invalidShop = await this.captureInvalidShop();
-        buffer = invalidShop?.buffer || await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
+        buffer = (invalidShop?.buffer || await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } })) as Buffer;
         shopTile = invalidShop?.shopTile || 'N/A';
       } else {
         console.log(`⚠️ [SHOPEE CHECK SHOP] Could not extract valid shop ID from saved HTML`);
-        buffer = await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
+        buffer = await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } }) as Buffer;
       }
     } else if (!shopInfo?.data && !fs.existsSync(htmlFilePath)) {
       console.log(`⚠️ [SHOPEE CHECK SHOP] No shop info from API and no saved HTML file, capturing screenshot directly from page`);
       const invalidShop = await this.captureInvalidShop();
-      buffer = invalidShop?.buffer || await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
+      buffer = (invalidShop?.buffer || await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } })) as Buffer;
       shopTile = invalidShop?.shopTile || 'N/A';
     } else {
       console.log(`📄 [SHOPEE CHECK SHOP] HTML file does not exist, capturing screenshot directly from page`);
-      buffer = await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
+      buffer = await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } }) as Buffer;
     }
 
     return { buffer, shopTile, status };
@@ -958,7 +952,11 @@ export class ShopeeCheckShop extends CheckShop {
 
   private async clickLanguageButton(page: Page): Promise<void> {
     try {
-      await page.click('button:has-text("Tiếng Việt")', { timeout: 5000 });
+      await page.evaluate(() => {
+        const buttons = Array.from(document.querySelectorAll('button'));
+        const btn = buttons.find(b => b.textContent?.includes('Tiếng Việt'));
+        btn?.click();
+      });
       console.log(`🌐 [SHOPEE CHECK SHOP] Clicked language button`);
     } catch (e) {
       console.log(`⚠️ [SHOPEE CHECK SHOP] Error clicking language button: ${e}`);

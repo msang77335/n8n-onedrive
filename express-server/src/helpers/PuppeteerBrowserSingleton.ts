@@ -5,23 +5,31 @@ import RecaptchaPlugin from 'puppeteer-extra-plugin-recaptcha';
 
 puppeteerExtra.use(StealthPlugin());
 
-const PROXY_URL = process.env.PROXY_URL || 'http://104.253.212.63:5473';
-const PROXY_CREDENTIALS = {
-  username: process.env.PROXY_USERNAME ?? '',
-  password: process.env.PROXY_PASSWORD ?? '',
-};
-
 export class PuppeteerBrowserSingleton {
   private static browserInstance: Browser | null = null;
   private static pages: Page[] = [];
   private static pageIndex: number = 0;
-  private static readonly MAX_PAGES = 3;
+  private static readonly MAX_PAGES = 1;
+
+  private static getProxyConfig() {
+    const proxyUrl = process.env.PROXY_URL || 'http://113.160.166.37:11164';
+    const credentials = {
+      username: process.env.PROXY_USERNAME || '',
+      password: process.env.PROXY_PASSWORD || '',
+    };
+    return { proxyUrl, credentials };
+  }
 
   static async getInstance(): Promise<Browser | null> {
     if (this.browserInstance) {
       console.log('♻️ [PUPPETEER] Reusing existing browser instance');
       return this.browserInstance;
     }
+
+    const { proxyUrl, credentials } = this.getProxyConfig();
+    const hasAuth = credentials.username && credentials.password;
+    console.log(`🌐 [PUPPETEER] Proxy Config: ${proxyUrl} ${hasAuth ? '(with authentication)' : '(no authentication)'}`);
+    console.log(`🔍 [PUPPETEER] Username: '${credentials.username}' | Password: '${credentials.password ? '***' : 'empty'}'`);
 
     // Configure recaptcha plugin
     puppeteerExtra.use(
@@ -44,12 +52,12 @@ export class PuppeteerBrowserSingleton {
       '--no-first-run',
       '--no-zygote',
       '--disable-gpu',
-      `--proxy-server=${PROXY_URL}`,
+      `--proxy-server=${proxyUrl}`,
     ];
 
     this.browserInstance = await puppeteerExtra.launch({
       headless: true,
-      executablePath: process.env.CHROME_PATH || '/usr/bin/chromium',
+      // executablePath: process.env.CHROME_PATH || '/usr/bin/chromium',
       args: launchArgs,
     });
 
@@ -80,7 +88,15 @@ export class PuppeteerBrowserSingleton {
     } else {
       console.log(`🆕 [PUPPETEER] Creating page ${nextIndex + 1} on demand...`);
       const page = await browser.newPage();
-      await page.authenticate(PROXY_CREDENTIALS);
+      const { credentials } = this.getProxyConfig();
+      
+      if (credentials.username && credentials.password) {
+        console.log(`🔐 [PUPPETEER] Authenticating with proxy credentials`);
+        await page.authenticate(credentials);
+      } else {
+        console.log(`⚠️ [PUPPETEER] No proxy credentials provided, using proxy without auth`);
+      }
+      
       await page.setViewport({ width: 1440, height: 1280 });
 
       page.on('close', () => {
@@ -107,9 +123,17 @@ export class PuppeteerBrowserSingleton {
 
     console.log('🆕 [PUPPETEER] Creating a fresh page...');
     const page = await browser.newPage();
-    await page.authenticate(PROXY_CREDENTIALS);
+    const { credentials, proxyUrl } = this.getProxyConfig();
+    
+    if (credentials.username && credentials.password) {
+      console.log(`🔐 [PUPPETEER] Authenticating with proxy credentials`);
+      await page.authenticate(credentials);
+    } else {
+      console.log(`⚠️ [PUPPETEER] No proxy credentials provided, using proxy without auth`);
+    }
+    
     await page.setViewport({ width: 1440, height: 1280 });
-    console.log('✅ [PUPPETEER] Fresh page created');
+    console.log(`✅ [PUPPETEER] Fresh page created with proxy: ${proxyUrl}`);
     return page;
   }
 
