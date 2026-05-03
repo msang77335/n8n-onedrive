@@ -964,6 +964,7 @@ export class ShopeeCheckShop extends CheckShop {
       if (shopId && shopId !== '127318131712761238712') {
         console.log(`📄 [SHOPEE CHECK SHOP] Found shop ID from saved HTML, fetching full shop info from page...`);
         const fetchedData = await this.fetchShopInfoFromPage(shopId);
+        console.log(`📊 [SHOPEE CHECK SHOP] Fetched shop info from page for shop ID ${shopId}:`, fetchedData);
         if (fetchedData === null) {
           const invalidShop = await this.captureInvalidShop();
           buffer = invalidShop?.buffer || await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
