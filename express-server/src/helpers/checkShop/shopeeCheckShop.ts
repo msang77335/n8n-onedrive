@@ -557,7 +557,7 @@ export class ShopeeCheckShop extends CheckShop {
 
     return out;
   }
-  
+
   private isValidHtmlResponse(text: string, status: number, responseUrl: string, targetUrl: string): boolean {
     return status === 200 && text.includes('text/shopee-short-url-checked') &&
       (responseUrl.includes('shopee.vn') || responseUrl === targetUrl);
@@ -841,12 +841,10 @@ export class ShopeeCheckShop extends CheckShop {
       await page.goto(normalizedUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
       const hasInvalidText = await page.evaluate(async () => {
+        await new Promise<void>(r => setTimeout(r, 50)); // Wait for 50 milliseconds to allow any potential loading to complete before stopping
+        window.stop(); // Stop further loading to save resources if invalid text is found
         const bodyText = document.body.innerText;
         const invalidText = bodyText.includes('Sản phẩm này không tồn tại');
-        if (invalidText) {
-          await new Promise<void>(r => setTimeout(r, 50)); // Wait for 50 milliseconds to allow any potential loading to complete before stopping
-          window.stop(); // Stop further loading to save resources if invalid text is found
-        }
         return invalidText;
       });
 
@@ -854,6 +852,8 @@ export class ShopeeCheckShop extends CheckShop {
         console.log(`⚠️ [SHOPEE CHECK SHOP] Invalid product text found, returning unavailable`);
         const buffer = await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
         return { site: this.site, status: "UNAVAILABLE", screenshot: buffer, shopTile: 'N/A' };
+      } else {
+        await page.goto(normalizedUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
       }
       await new Promise<void>(r => setTimeout(r, 10000));
       // Chờ thêm 10 giây để đảm bảo tất cả nội dung động được tải
