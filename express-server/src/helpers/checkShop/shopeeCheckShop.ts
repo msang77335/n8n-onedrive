@@ -915,7 +915,7 @@ export class ShopeeCheckShop extends CheckShop {
       }
 
       const shopId = this.extractShopIdFromHtml(fs.existsSync(htmlFilePath) ? fs.readFileSync(htmlFilePath, 'utf-8') : '');
-      if (!shopId) {
+      if (!dataContainer?.shopInfo && !shopId) {
         const invalidShop = await this.captureInvalidShop(true);
         const buffer = invalidShop?.buffer || await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
         const shopTile = invalidShop?.shopTile || 'N/A';
