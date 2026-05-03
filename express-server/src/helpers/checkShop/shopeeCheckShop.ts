@@ -855,10 +855,7 @@ export class ShopeeCheckShop extends CheckShop {
       } else {
         await page.goto(normalizedUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
       }
-      await new Promise<void>(r => setTimeout(r, 20000));
-      // Click language button to ensure content is fully loaded in correct language
-      await this.clickLanguageButton(page);
-      await new Promise<void>(r => setTimeout(r, 5000));
+      await new Promise<void>(r => setTimeout(r, 15000));
 
       let isValidShop = await this.checkValidShop(page);
 
@@ -970,8 +967,8 @@ export class ShopeeCheckShop extends CheckShop {
       'Shop này đã bị khoá',
       'Không thể tải Shop này',
       'Sản phẩm này không tồn tại',
-      'This Shop has been banned / frozen from Shopee',
-      'This shop failed to load. Please tap back and try again.'
+      'This Shop has been banned',
+      'This shop failed to load'
     ]
     const isErrorPage = await page.evaluate((invalidTexts) => {
       const bodyText = document.body.innerText;
