@@ -127,9 +127,9 @@ export class ShopeeCheckShop extends CheckShop {
       const htmlTemplate = fs.readFileSync(htmlPath, 'utf-8');
       const filledHtml = this.fillShopInfoInTemplate(htmlTemplate, shopInfo, searchSuggestions, shopCategories, shopItems);
       page.setContent(filledHtml, { waitUntil: 'domcontentloaded' });
-      // Chờ thêm 15 giây để đảm bảo tất cả nội dung động được tải
-      console.log(`⏳ [SHOPEE SHOP HTML] Waiting for 15 seconds to ensure all dynamic content is loaded`);
-      await new Promise<void>(r => setTimeout(r, 15000));
+      // Chờ thêm 10 giây để đảm bảo tất cả nội dung động được tải
+      console.log(`⏳ [SHOPEE SHOP HTML] Waiting for 10 seconds to ensure all dynamic content is loaded`);
+      await new Promise<void>(r => setTimeout(r, 10000));
       const buffer = await page.screenshot({ fullPage: true });
       const title = shopInfo.data?.name || 'Shop';
       console.log(`📸 [SHOPEE SHOP HTML] Screenshot captured from shop info`);
