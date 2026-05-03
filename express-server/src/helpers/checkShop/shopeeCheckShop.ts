@@ -841,10 +841,14 @@ export class ShopeeCheckShop extends CheckShop {
       await page.goto(normalizedUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
       const hasInvalidText = await page.evaluate(async () => {
-        await new Promise<void>(r => setTimeout(r, 50)); // Wait for 50 milliseconds to allow any potential loading to complete before stopping
-        window.stop(); // Stop further loading to save resources if invalid text is found
         const bodyText = document.body.innerText;
-        const invalidText = bodyText.includes('Sản phẩm này không tồn tại');
+        const invalidText = 
+        bodyText.includes('Sản phẩm này không tồn tại') || 
+        bodyText.includes("The product doesn't exist") ||
+        bodyText.includes('This Shop has been banned');
+        if(invalidText) {
+          window.stop(); // Stop loading immediately if invalid text is found
+        }
         return invalidText;
       });
 
@@ -967,6 +971,7 @@ export class ShopeeCheckShop extends CheckShop {
       'Shop này đã bị khoá',
       'Không thể tải Shop này',
       'Sản phẩm này không tồn tại',
+      "The product doesn't exist",
       'This Shop has been banned',
       'This shop failed to load'
     ]
