@@ -127,9 +127,9 @@ export class ShopeeCheckShop extends CheckShop {
       const htmlTemplate = fs.readFileSync(htmlPath, 'utf-8');
       const filledHtml = this.fillShopInfoInTemplate(htmlTemplate, shopInfo, searchSuggestions, shopCategories, shopItems);
       page.setContent(filledHtml, { waitUntil: 'domcontentloaded' });
-      // Chờ thêm 10 giây để đảm bảo tất cả nội dung động được tải
-      console.log(`⏳ [SHOPEE SHOP HTML] Waiting for 10 seconds to ensure all dynamic content is loaded`);
-      await new Promise<void>(r => setTimeout(r, 10000));
+      // Chờ thêm 15 giây để đảm bảo tất cả nội dung động được tải
+      console.log(`⏳ [SHOPEE SHOP HTML] Waiting for 15 seconds to ensure all dynamic content is loaded`);
+      await new Promise<void>(r => setTimeout(r, 15000));
       const buffer = await page.screenshot({ fullPage: true });
       const title = shopInfo.data?.name || 'Shop';
       console.log(`📸 [SHOPEE SHOP HTML] Screenshot captured from shop info`);
@@ -901,8 +901,8 @@ export class ShopeeCheckShop extends CheckShop {
       } else {
         await page.goto(normalizedUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
       }
-      await new Promise<void>(r => setTimeout(r, 10000));
-      // Chờ thêm 10 giây để đảm bảo tất cả nội dung động được tải
+      await new Promise<void>(r => setTimeout(r, 20000));
+      // Click language button to ensure content is fully loaded in correct language
       await this.clickLanguageButton(page);
       await new Promise<void>(r => setTimeout(r, 5000));
 
