@@ -1,7 +1,8 @@
 import * as fs from 'node:fs';
-import { Page, Response } from 'playwright';
+import { BrowserContext, Page, Response } from 'playwright';
+import RecaptchaPlugin from 'puppeteer-extra-plugin-recaptcha';
+const { firefox } = require('playwright-extra');
 import { CheckShop, ScreenshotResult, ShopSiteEnum } from '.';
-import { PlaywrightBrowserSingleton } from '../PlaywrightBrowserSingleton';
 
 const outputDir = process.env.OUTPUT_DIR || `${process.cwd()}/output`;
 const templatesDir = process.env.TEMPLATES_DIR || `${process.cwd()}/templates`;
@@ -37,6 +38,50 @@ const defaultSearchSuggestions = `
 
 export class ShopeeCheckShop extends CheckShop {
   readonly site = ShopSiteEnum.Shopee;
+
+  private async getBrowserContext(): Promise<{ context: BrowserContext; browser: any }> {
+    // Configure plugins
+    firefox.use(
+      RecaptchaPlugin({
+        provider: {
+          id: '2captcha',
+          token: process.env.CAPTCHA_SOLVER_API_KEY || '',
+        },
+        visualFeedback: true,
+      })
+    );
+
+    const launchOptions: any = {
+      headless: false,
+      args: [
+        '--no-sandbox',
+      ]
+    };
+
+    const browser = await firefox.launch(launchOptions);
+
+    // Configure context options with proxy
+    const contextOptions: any = {
+      viewport: { width: 1280, height: 1080 }
+    };
+
+    // Add proxy configuration to context
+    if (process.env.PROXY_URL) {
+      contextOptions.proxy = {
+        server: process.env.PROXY_URL,
+      };
+      
+      if (process.env.PROXY_USERNAME && process.env.PROXY_PASSWORD) {
+        contextOptions.proxy.username = process.env.PROXY_USERNAME;
+        contextOptions.proxy.password = process.env.PROXY_PASSWORD;
+      }
+      
+      console.log(`🔗 [BROWSER] Using proxy: ${process.env.PROXY_URL}`);
+    }
+
+    const context = await browser.newContext(contextOptions);
+    return { context, browser };
+  }
 
   matches(url: string): boolean {
     const keywords = [
@@ -74,11 +119,8 @@ export class ShopeeCheckShop extends CheckShop {
   }
 
   private async captureScreenshotShopFromHtml(shopInfo: any, searchSuggestions: any[], shopCategories: any[], shopItems: any[]): Promise<{ buffer: Buffer, title: string } | undefined> {
-    const context = await PlaywrightBrowserSingleton.getContext();
-    if (!context) return undefined;
-
+    const { context, browser } = await this.getBrowserContext();
     const page = await context.newPage();
-    if (!page) return undefined;
 
     try {
       const htmlPath = shopInfo?.data?.is_official_shop ? `${templatesDir}/shopee-mall-template.html` : `${templatesDir}/shopee-shop-template.html`;
@@ -97,6 +139,8 @@ export class ShopeeCheckShop extends CheckShop {
       return undefined;
     } finally {
       await page.close();
+      await context.close();
+      await browser.close();
     }
   }
 
@@ -629,11 +673,8 @@ export class ShopeeCheckShop extends CheckShop {
     shopCategories: any[];
     shopItems: any[];
   } | null> {
-    const context = await PlaywrightBrowserSingleton.getContext();
-    if (!context) return { searchSuggestions: [], shopCategories: [], shopItems: [] };
-
+    const { context, browser } = await this.getBrowserContext();
     const page = await context.newPage();
-    if (!page) return { searchSuggestions: [], shopCategories: [], shopItems: [] };
 
     const dataContainer = {
       searchSuggestions: [] as any[],
@@ -660,14 +701,14 @@ export class ShopeeCheckShop extends CheckShop {
       return dataContainer;
     } finally {
       await page.close();
+      await context.close();
+      await browser.close();
     }
   }
 
   private async captureInvalidShop(block: boolean = false): Promise<{ buffer?: Buffer; shopTile?: string }> {
-    const context = await PlaywrightBrowserSingleton.getContext();
-    if (!context) throw new Error('Cannot create Playwright context');
+    const { context, browser } = await this.getBrowserContext();
     const page = await context.newPage();
-    if (!page) throw new Error('Cannot create Playwright page');
 
     try {
       if (block) {
@@ -689,6 +730,8 @@ export class ShopeeCheckShop extends CheckShop {
       return {};
     } finally {
       await page.close();
+      await context.close();
+      await browser.close();
     }
   }
 
@@ -810,10 +853,8 @@ export class ShopeeCheckShop extends CheckShop {
   }
 
   async screenshot(url: string): Promise<ScreenshotResult> {
-    const context = await PlaywrightBrowserSingleton.getContext();
-    if (!context) throw new Error('Cannot create Playwright context');
+    const { context, browser } = await this.getBrowserContext();
     const page = await context.newPage();
-    if (!page) throw new Error('Cannot create Playwright page');
 
     // Delete existing file before saving new one
     try {
@@ -894,6 +935,8 @@ export class ShopeeCheckShop extends CheckShop {
       return { site: this.site, status, shopTile, screenshot: buffer };
     } finally {
       await page.close();
+      await context.close();
+      await browser.close();
     }
   }
 
