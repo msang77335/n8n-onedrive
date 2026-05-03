@@ -628,7 +628,7 @@ export class ShopeeCheckShop extends CheckShop {
     searchSuggestions: any[];
     shopCategories: any[];
     shopItems: any[];
-  }> {
+  } | null> {
     const context = await PlaywrightBrowserSingleton.getContext();
     if (!context) return { searchSuggestions: [], shopCategories: [], shopItems: [] };
 
@@ -648,6 +648,11 @@ export class ShopeeCheckShop extends CheckShop {
       console.log(`🌐 [SHOPEE FETCH SHOP] Navigating to ${shopUrl}...`);
       await page.goto(shopUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
       await new Promise<void>(r => setTimeout(r, 5000)); // Wait for API responses
+
+      const invalidShopData = await this.checkValidShop(page);
+      if (invalidShopData) {
+        return null
+      }
 
       return dataContainer;
     } catch (e) {
@@ -916,8 +921,11 @@ export class ShopeeCheckShop extends CheckShop {
       if (shopId && shopId !== '127318131712761238712') {
         console.log(`📄 [SHOPEE CHECK SHOP] Found shop ID from saved HTML, fetching full shop info from page...`);
         const fetchedData = await this.fetchShopInfoFromPage(shopId);
-
-        if (fetchedData.shopInfo?.data) {
+        if (fetchedData === null) {
+          const invalidShop = await this.captureInvalidShop();
+          buffer = invalidShop?.buffer || await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
+          shopTile = invalidShop?.shopTile || 'N/A';
+        } else if (fetchedData.shopInfo?.data) {
           const htmlScreenshot = await this.captureScreenshotShopFromHtml(
             fetchedData.shopInfo,
             fetchedData.searchSuggestions,
@@ -966,7 +974,8 @@ export class ShopeeCheckShop extends CheckShop {
       'Shop này đã bị khoá bởi Shopee',
       'Shop này đã bị khoá',
       'Không thể tải Shop này',
-      'Sản phẩm này không tồn tại'
+      'Sản phẩm này không tồn tại',
+      'This Shop has been banned / frozen from Shopee'
     ]
     const isErrorPage = await page.evaluate((invalidTexts) => {
       const bodyText = document.body.innerText;
