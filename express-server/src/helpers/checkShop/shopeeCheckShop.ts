@@ -690,8 +690,8 @@ export class ShopeeCheckShop extends CheckShop {
       await page.goto(shopUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
       await new Promise<void>(r => setTimeout(r, 5000)); // Wait for API responses
 
-      const invalidShopData = await this.checkValidShop(page);
-      if (invalidShopData) {
+      const isValid = await this.checkValidShop(page);
+      if (!isValid) {
         return null
       }
 
@@ -915,7 +915,7 @@ export class ShopeeCheckShop extends CheckShop {
       }
 
       const shopId = this.extractShopIdFromHtml(fs.existsSync(htmlFilePath) ? fs.readFileSync(htmlFilePath, 'utf-8') : '');
-      if (!dataContainer.shopItems?.length && !shopId) {
+      if (!shopId) {
         const invalidShop = await this.captureInvalidShop(true);
         const buffer = invalidShop?.buffer || await page.screenshot({ fullPage: false, clip: { x: 0, y: 0, width: 1440, height: 1024 } });
         const shopTile = invalidShop?.shopTile || 'N/A';
@@ -1018,7 +1018,8 @@ export class ShopeeCheckShop extends CheckShop {
       'Shop này đã bị khoá',
       'Không thể tải Shop này',
       'Sản phẩm này không tồn tại',
-      'This Shop has been banned / frozen from Shopee'
+      'This Shop has been banned / frozen from Shopee',
+      'This shop failed to load. Please tap back and try again.'
     ]
     const isErrorPage = await page.evaluate((invalidTexts) => {
       const bodyText = document.body.innerText;
